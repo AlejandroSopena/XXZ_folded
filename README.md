@@ -60,3 +60,5 @@ The structure of the output files is
     The second element corresponds to the energy, the third to $Q_1$, and the fourth to $Q_2$.
     `mit_val` is the mitigated expectation value, `val`is the noisy expectation value, `optimal params` is a list with to elements `[a,b]` which are the optimal fit parameters from CDR and produce the line $ax+b$, 
     `tain_val`is a dictionary containing the noiseless and noisy training states under the keys `noisy` and `noiseless`, respectively.
+
+The folder `data` contains the files to reproduce the results of the paper.
