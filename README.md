@@ -54,6 +54,7 @@ The structure of the output files is
 
 - `path/state.npy`: dictionary containing the noiseless and noisy states under the keys `noisy` and `noiseless`, respectively.
 - `path/training_states/training_circuits.npy`: list with the training set of near Clifford circuits used in CDR.
+- `path/training_states/states_i.npy`: dictionary containing the noiseless and noisy i-th training state under the keys `noisy` and `noiseless`, respectively.
 - `path/mitigated_values.npy`: list of lists. 
     The first element is `[[circuit,layout],energy_noiseless,Q1_noiseless,Q2_noiseless]`, where `circuit` is the circuit to prepare the eigenstate, `layout` denotes the mapping from virtual to physical qubits, and `energy_noiseless`, `Q1_noiseless`, `Q2_noiseless` are the noiseless values for the energy, $Q_1$, and $Q_2$, respectively.
     The second, third and fourth elements have the structure `[mit_val, val, optimal_params, train_val]`.
@@ -61,4 +62,4 @@ The structure of the output files is
     `mit_val` is the mitigated expectation value, `val`is the noisy expectation value, `optimal params` is a list with to elements `[a,b]` which are the optimal fit parameters from CDR and produce the line $ax+b$, 
     `tain_val`is a dictionary containing the noiseless and noisy training states under the keys `noisy` and `noiseless`, respectively.
 
-The folder `data` contains the files to reproduce the results of the paper.
+The file `data.gz` contains the files to reproduce the results of the paper.
