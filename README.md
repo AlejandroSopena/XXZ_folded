@@ -1,5 +1,5 @@
 # Efficient Eigenstate Preparation in an Integrable Model with Hilbert Space Fragmentation
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13925212.svg)](https://doi.org/10.5281/zenodo.13925212)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13925212.svg)](https://doi.org/10.5281/zenodo.13925211)
 
 This repository contains the code to reproduce the numerical implementations presented in the manuscript [Efficient Eigenstate Preparation in an Integrable Model with Hilbert Space Fragmentation]().
 
