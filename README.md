@@ -6,113 +6,57 @@ This repository contains the code to reproduce the numerical implementations pre
 
 ## Dependences
 
-- `Pyhton>=3.11.7`
+- `Pyhton>=3.11.8`
 
-- `qibo==0.2.5`
+- `qibo==0.2.12`
+
+- `qibojit==0.1.6`
+
+- `qiskit==1.2.0`
 
 
 ## Usage
-[`XXZ_model.py`](https://github.com/AlejandroSopena/The-Bethe-Ansatz-as-a-Quantum-Circuit/blob/main/XXZ_model.py) contains a class to generate the unitary matrices $P_k$ (unitaries for $k < M$ and isometries $P_k|0\rangle$ for $k\geq M$) derived from the $\Lambda$ tensors.
+[`XXZ_folded.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/XXZ_folded.py) contains a class to generate the `circuit` to prepare an eigenstate of the XXZ folded model with two domain walls, $N$ bulk sites and $M$ magnons.
+For $N=5$ and $N=6$ with one magnon, the simplifications explained in the article are implemented.
 ```python
-from XXZ_model import XXZ_model
-from utils import unitarize_pink, check_unitariry
+from XXZ_folded import XXZ_folded_one_domain
 
-nspins = 4
-nmagnons = 2
-delta = 0.5
-roots = [-0.574, 0.574]
+N = 6
+M = 1
+domain_pos = [4,5]
 
-t = XXZ_model(nspins, nmagnons, delta)
-t.get_roots(roots)
-t.get_indexes()
+model = XXZ_folded_one_domain(N, M, domain_pos)
+model._get_roots()
+circ_xx, circ_xxb = model.get_xx_b_circuit()
+circ_u0 = model.get_U0_circ()
+circ_d = model.get_D_circ()
+circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
-P_xxz = []
-for k in range(1, nspins):
-    P_xxz.append(t.get_Pk_matrix(k=k, a=True, b=True))
-
-for k in range(nmagnons-1, nspins-1):
-    P_xxz[k] = unitarize_pink(P_xxz[k])
-
-for k in range(nspins-1):
-    print(check_unitariry(P_xxz[k]))
+circuit = model.get_full_circ()
 ```
 
-[`XXZ_model_QR.py`](https://github.com/AlejandroSopena/The-Bethe-Ansatz-as-a-Quantum-Circuit/blob/main/XXZ_model_QR.py) contains the functions to generate the matrices $P_k$ derived from the $\Gamma$ tensors using the QR decomposition.
+[`run_simulation.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/run_simulation.py) performs the simulations explained in the paper for a given eigenstate. The simulation can be customized throught specific command-line arguments.
 ```python
-from XXZ_model_QR import get_P_G
-from utils import unitarize_pink, check_unitariry
-
-nspins = 4
-roots = [-0.574, 0.574]
-delta = 0.5
-roots = [-0.574, 0.574]
-
-P_xxz_qr = get_P_G(nspins, roots, delta)[0]
-
-for k in range(nmagnons-1, nspins-1):
-    P_xxz_qr[k] = unitarize_pink(P_xxz_qr[k])
-
-for k in range(nspins-1):
-    print(check_unitariry(P_xxz_qr[k]))
+python run_simulation.py --path result --N 5 --M 1 --domain_pos 3 4 --connectivity google_sycamore --basis_gates cx rz sx x id --boundaries False --lamb 0.003 --n_training_samples 50 --precision single
 ```
+- `path`: path to save the data files with the expectaion values and the states.
+- `N`: number of bulk qubits.
+- `M`: number of magnons.
+- `domain_pos`: position of the domain walls.
+- `connectivity`: can be `google_sycamore` for $N=5$ and $N=6$. `None` otherwise.
+- `basis_gates`: single-qubit and two-qubit gates used to decompose the circuit.
+- `boundaries`: if `True`, it extends the final state to $N+2$ qubits.
+- `lambd`: depolarizing parameter used for the noisy simulation.
+- `n_training_samples`: number of near Clifford circuits used in CDR.
+- `precision` `single`: enables `complex64` and `double` enables `complex128`.
 
-[`XX_model.py`](https://github.com/AlejandroSopena/The-Bethe-Ansatz-as-a-Quantum-Circuit/blob/main/XX_model.py) contains a class to generate the quantum circuit to prepare Bethe eigensates of the XX model. These circuits are efficient in the number of qubits and magnons.
+The structure of the output files is
 
-```python
-from XX_model import XX_model
-
-nspins = 4
-nmagnons = 2
-roots = [-0.561, 0.561]
-
-t = XX_model(nspins, nmagnons)
-t.get_roots(roots)
-t.P_list()
-t.get_circuit()
-circ = t.circuit
-state_xx_efficient = circ().state()
-```
-
-
-
-[`bethe_circuit.py`](https://github.com/AlejandroSopena/Algebraic-Bethe-Circuits/blob/main/bethe_circuit.py) defines the class `BetheCircuit` which implements the Bethe Ansatz for the XXZ model with both the non-unitary matrices $R$ and the unitary matrices $P_k$.
-```python
-import numpy as np
-from qibo.quantum_info import fidelity
-from bethe_circuit import BetheCircuitTN
-
-nspins = 4
-nmagnons = 2
-roots = [-0.574, 0.574]
-delta = 0.5
-
-v = BetheCircuitTN(nspins, nmagnons)
-state_mps = v.mps_state(roots, delta)().state()
-state_mps = [state_mps[i] for i in range(0, len(state_mps), 2**nmagnons)]
-state_mps /= np.linalg.norm(state_mps)
-
-state_lambda = v.unitary_circuit(P_xxz)().state()
-state_gamma = v.unitary_circuit(P_xxz_qr)().state()
-
-fidelity_mps_lambda = fidelity(state_mps, state_lambda)
-fidelity_mps_gamma = fidelity(state_mps, state_gamma)
-
-print('fidelity lambda', fidelity_mps_lambda)
-print('fidelity gamma', fidelity_mps_gamma)
-```
-
-The fidelity of the XX eigenstate can be computed as
-```python
-nspins = 4
-nmagnons = 2
-roots = [-0.561,0.561]
-delta = 0
-
-v = BetheCircuitTN(nspins, nmagnons)
-state_mps = v.mps_state(roots,delta)().state()
-state_mps =  [state_mps[i] for i in range(0,len(state_mps),2**nmagnons)]
-state_mps /= np.linalg.norm(state_mps)
-
-fidelity_mps_xx = fidelity(state_mps,state_xx_efficient)
-print('fidelity xx', fidelity_mps_xx)
-```
+- `path/state.npy`: dictionary that contains the noiseless and noisy states under the keys `noisy` and `noiseless`, respectively.
+- `path/training_states/training_circuits.npy`: list with the training set of near Clifford circuits used in CDR.
+- `path/mitigated_values.npy`: list of lists. 
+    The first element is `[[circuit,layout],energy_noiseless,Q1_noiseless,Q2_noiseless]`, where `circuit` is the circuit to prepare the eigenstate, `layout` denotes the mapping from virtual to physical qubits, and `energy_noiseless`, `Q1_noiseless`, `Q2_noiseless` are the noiseless values for the energy, $Q_1$, and $Q_2$, respectively.
+    The second, third and fourth elements have the structure `[mit_val, val, optimal_params, train_val]`.
+    The second element corresponds to the energy, the third to $Q_1$, and the fourth to $Q_2$.
+    `mit_val` is the mitigated expectation value, `val`is the noisy expectation value, `optimal params` is a list with to elements `[a,b]` which are the optimal fit parameters from CDR and produce the line $ax+b$, 
+    dictionary that contains the noiseless and noisy training states under the keys `noisy` and `noiseless`, respectively.
