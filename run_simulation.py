@@ -22,11 +22,10 @@ from XXZ_folded import XXZ_folded_one_domain
 def main():
     parser = argparse.ArgumentParser(description="Run simulation with specified parameters.")
     parser.add_argument('--basis_gates', nargs='+', default=['cx', 'rz', 'sx', 'x', 'id'], help='List of basis gates')
-    parser.add_argument('--coupling_map', default=None, help='Coupling map')
     parser.add_argument('--boundaries', type=bool, default=False, help='Boundaries flag')
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
-    parser.add_argument('--path', type=str, default='states_all_connectivity_N_5_3', help='Path to save states')
+    parser.add_argument('--path', type=str, default='result', help='Path to save states')
     parser.add_argument('--N', type=int, default=5, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of domain walls')
     parser.add_argument('--domain_pos', nargs='+', type=int, default=[3, 4], help='Domain positions')
@@ -36,7 +35,6 @@ def main():
     args = parser.parse_args()
 
     basis_gates = args.basis_gates
-    coupling_map = args.coupling_map
     boundaries = args.boundaries
     lamb = args.lamb
     n_training_samples = args.n_training_samples
@@ -177,7 +175,7 @@ def main():
     q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1))
 
     def get_mit_value(observable, n_training_samples, noisy_state):
-        train_val = {"noise-free": [], "noisy": []}
+        train_val = {"noiseless": [], "noisy": []}
         for i in range(n_training_samples):
             training_state = np.load(path+f'/training_states/states_{i}.npy',allow_pickle=True).item()
             state = training_state['noiseless']
@@ -185,7 +183,7 @@ def main():
             val = observable.expectation(state)
             if backend.platform == 'cupy':
                 val = float(val.get())
-            train_val["noise-free"].append(val)
+            train_val["noiseless"].append(val)
 
             state = training_state['noisy']
             val = observable.expectation(state)
