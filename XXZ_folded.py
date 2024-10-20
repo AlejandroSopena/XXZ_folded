@@ -131,9 +131,15 @@ class XXZ_folded_one_domain:
         return circ_u0
 
     def get_D_circ_general(self):
-        aux = 4
+        aux = 2 + int(self.D/2) + 1 + int(self.D/2) + 1
         nqubits_d = 2*self.N - self.D
+        r_r = list(range(nqubits_d+aux-(int(self.D/2) +1),nqubits_d+aux))
+        r_c = list(range(nqubits_d+aux-2*(int(self.D/2) +1),nqubits_d+aux-int(self.D/2) -1))
+        r_0 = list(range(nqubits_d+aux-2*(int(self.D/2) + 1)-2,nqubits_d+aux-2*(int(self.D/2) + 1))) 
+
         circ_d = Circuit(nqubits_d+aux)
+        print(aux)
+        circ_d.add(gates.X(r_c[0]))
         nqubits = circ_d.nqubits
 
         index_domain = []
@@ -163,9 +169,13 @@ class XXZ_folded_one_domain:
         for j in range(self.N - self.D, self.N):
             index_domain.append(k)
             k += 1
+        
+        circ_d.add(gates.X(index_p[3])) # ADD MAGNON
 
         for p in reversed(index_p):
-            circ_d.add(gates.SWAP(p, nqubits-4))
+        #p = index_p[3]
+
+            circ_d.add(gates.SWAP(p, r_0[0]))
             # Detect and move ni
             if p >= 2:
                 index_q = [-1] + index_domain
@@ -174,21 +184,21 @@ class XXZ_folded_one_domain:
                     index_q1 = index_q.index(q)
                     circ_d.add(gates.X(index_q[index_q1+2]))
                     circ_d.add(gates.X(
-                        nqubits-3).controlled_by(index_q[index_q1+2], index_q[index_q1+3], nqubits-4))
-                    circ_d.add(gates.X(
-                        nqubits-2).controlled_by(index_q[index_q1+2], index_q[index_q1+3], nqubits-4))
+                        r_0[1]).controlled_by(index_q[index_q1+2], index_q[index_q1+3], r_0[0]))
                     circ_d.add(gates.X(index_q[index_q1+2]))
 
-                    circ_d.add(gates.CNOT(nqubits-3, index_q[index_q1+1]))
-                    circ_d.add(gates.CNOT(nqubits-3, index_q[index_q1+2]))
+                    circ_d.add(gates.CNOT(r_0[1], index_q[index_q1+1]))
+                    circ_d.add(gates.CNOT(r_0[1], index_q[index_q1+2]))
+                    for ii in reversed(range(1,len(r_c))):
+                        circ_d.add(gates.SWAP(r_c[ii-1], r_c[ii]).controlled_by(r_0[1]))
 
                     if q == -1:
                         circ_d.add(
-                            gates.X(nqubits-3).controlled_by(index_q[index_q1+1], nqubits-4))
+                            gates.X(r_0[1]).controlled_by(index_q[index_q1+1], r_0[0]))
                     else:
                         circ_d.add(gates.X(q))
-                        circ_d.add(gates.X(nqubits-3).controlled_by(q,
-                                   index_q[index_q1+1], nqubits-4))
+                        circ_d.add(gates.X(r_0[1]).controlled_by(q,
+                                    index_q[index_q1+1], r_0[0]))
                         circ_d.add(gates.X(q))
 
             i2 = index_p.index(p)
@@ -196,78 +206,83 @@ class XXZ_folded_one_domain:
                 # Detect and move nf
                 circ_d.add(gates.X(index_domain[1+index_q+3]))  # 6))
                 circ_d.add(gates.X(
-                    nqubits-3).controlled_by(index_domain[1+index_q+2], index_domain[1+index_q+3], nqubits-4))
-                circ_d.add(gates.X(
-                    nqubits-1).controlled_by(index_domain[1+index_q+2], index_domain[1+index_q+3], nqubits-4))
+                    r_0[1]).controlled_by(index_domain[1+index_q+2], index_domain[1+index_q+3], r_0[0]))
                 circ_d.add(gates.X(index_domain[1+index_q+3]))
 
-                circ_d.add(gates.CNOT(nqubits-3, index_domain[1+index_q+1]))
-                circ_d.add(gates.CNOT(nqubits-3, index_domain[1+index_q+2]))
+                circ_d.add(gates.CNOT(r_0[1], index_domain[1+index_q+1]))
+                circ_d.add(gates.CNOT(r_0[1], index_domain[1+index_q+2]))
 
                 circ_d.add(gates.X(index_domain[1+index_q+1]))
-                circ_d.add(gates.X(nqubits-3).controlled_by(q,
-                           index_domain[1+index_q+1], nqubits-4))
+                circ_d.add(gates.X(r_0[1]).controlled_by(q,
+                            index_domain[1+index_q+1], r_0[0]))
                 circ_d.add(gates.X(index_domain[1+index_q+1]))
 
             # insert magnon
             ip = index_p.index(p)
-            circ_d.add(gates.CNOT(nqubits-4, index_domain[ip]))
+            circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip], r_0[0]))
+            circ_d.add(gates.X(index_domain[ip]).controlled_by(r_0[0],r_c[0]))
+            for i, ii in enumerate(index_domain[ip+1:ip+self.D:2]):
+                circ_d.add(gates.X(ii).controlled_by(r_0[1],r_c[i+1]))
+                circ_d.add(gates.X(r_0[1]))
+                circ_d.add(gates.X(ii+1).controlled_by(r_0[1],r_c[i+1]))
+                circ_d.add(gates.X(r_0[1]))
+            if ip >= 1:
+                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip-1],index_domain[ip],r_0[0]))
+            else:
+                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip],r_0[0]))
 
-            circ_d.add(gates.CNOT(nqubits-2, index_domain[ip]))
-            circ_d.add(gates.CNOT(nqubits-2, index_domain[ip+1]))
 
-            circ_d.add(gates.CNOT(nqubits-1, index_domain[ip+1]))
-            circ_d.add(gates.CNOT(nqubits-1, index_domain[ip+2]))
 
             # reset
-            if p == 0:
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(
-                    gates.X(nqubits-4).controlled_by(index_domain[ip], index_domain[ip+1]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-            else:
-                circ_d.add(gates.X(index_domain[ip-1]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(gates.X(
-                    nqubits-4).controlled_by(index_domain[ip-1], index_domain[ip], index_domain[ip+1]))
-                circ_d.add(gates.X(index_domain[ip-1]))
-                circ_d.add(gates.X(index_domain[ip+1]))
+            # if p == 0:
+            #     circ_d.add(gates.X(index_domain[ip+1]))
+            #     circ_d.add(
+            #         gates.X(nqubits-4).controlled_by(index_domain[ip], index_domain[ip+1]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
+            # else:
+            #     circ_d.add(gates.X(index_domain[ip-1]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
+            #     circ_d.add(gates.X(
+            #         nqubits-4).controlled_by(index_domain[ip-1], index_domain[ip], index_domain[ip+1]))
+            #     circ_d.add(gates.X(index_domain[ip-1]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
 
-            if p != 0:
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(gates.X(nqubits-4).controlled_by(
-                    index_domain[ip-1], index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
-                circ_d.add(gates.X(nqubits-2).controlled_by(
-                    index_domain[ip-1], index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
-                circ_d.add(gates.X(index_domain[ip+1]))
+            # if p != 0:
+            #     circ_d.add(gates.X(index_domain[ip+1]))
+            #     circ_d.add(gates.X(nqubits-4).controlled_by(
+            #         index_domain[ip-1], index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
+            #     circ_d.add(gates.X(nqubits-2).controlled_by(
+            #         index_domain[ip-1], index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
 
-            qr1 = index_domain[ip-1]
-            if p != 0:
-                circ_d.add(gates.X(index_domain[ip]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(gates.X(nqubits-4).controlled_by(qr1,
-                           index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
-                circ_d.add(gates.X(nqubits-2).controlled_by(qr1,
-                           index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
-                circ_d.add(gates.X(nqubits-1).controlled_by(qr1,
-                           index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
-                circ_d.add(gates.X(index_domain[ip]))
-                circ_d.add(gates.X(index_domain[ip+1]))
+            # qr1 = index_domain[ip-1]
+            # if p != 0:
+            #     circ_d.add(gates.X(index_domain[ip]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
+            #     circ_d.add(gates.X(nqubits-4).controlled_by(qr1,
+            #                index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
+            #     circ_d.add(gates.X(nqubits-2).controlled_by(qr1,
+            #                index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
+            #     circ_d.add(gates.X(nqubits-1).controlled_by(qr1,
+            #                index_domain[ip], index_domain[ip+1], index_domain[ip+2]))
+            #     circ_d.add(gates.X(index_domain[ip]))
+            #     circ_d.add(gates.X(index_domain[ip+1]))
 
-            if p != 0:
-                i2 = index_domain.index(p-1)
-                for index_q, qr in enumerate(index_domain[1:i2]):
-                    circ_d.add(gates.X(index_domain[1+index_q+1]))
-                    circ_d.add(gates.X(index_domain[ip+1]))
-                    circ_d.add(gates.X(nqubits-4).controlled_by(qr,
-                               index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
-                    circ_d.add(gates.X(nqubits-2).controlled_by(qr,
-                               index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
-                    circ_d.add(gates.X(nqubits-1).controlled_by(qr,
-                               index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
-                    circ_d.add(gates.X(index_domain[1+index_q+1]))
-                    circ_d.add(gates.X(index_domain[ip+1]))
+            # if p != 0:
+            #     i2 = index_domain.index(p-1)
+            #     for index_q, qr in enumerate(index_domain[1:i2]):
+            #         circ_d.add(gates.X(index_domain[1+index_q+1]))
+            #         circ_d.add(gates.X(index_domain[ip+1]))
+            #         circ_d.add(gates.X(nqubits-4).controlled_by(qr,
+            #                    index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
+            #         circ_d.add(gates.X(nqubits-2).controlled_by(qr,
+            #                    index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
+            #         circ_d.add(gates.X(nqubits-1).controlled_by(qr,
+            #                    index_domain[1+index_q+1], index_domain[ip+1], index_domain[ip+2]))
+            #         circ_d.add(gates.X(index_domain[1+index_q+1]))
+            #         circ_d.add(gates.X(index_domain[ip+1]))
         self.circ_d = circ_d
+        print(circ_d().symbolic())
 
         return circ_d
 
@@ -665,7 +680,7 @@ class XXZ_folded_one_domain:
         elif self.N == 6 and self.M == 1:
             aux = 3
         else:
-            aux = 4#int(self.D/2)+1
+            aux = 2 + int(self.D/2) + 1 + int(self.D/2) + 1
         circ_full = Circuit(2*self.N-self.D+aux+aux_qubits1)
 
         index_p = []
