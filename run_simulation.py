@@ -40,10 +40,10 @@ def main():
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=10, help='Number of qubits')
+    parser.add_argument('--N', type=int, default=13, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of magnons')
-    parser.add_argument('--D', type=float, default=2, help='Number of domain walls')
-    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[3,4]], help='Domain positions') # [[4,5],[8,9]]
+    parser.add_argument('--D', type=float, default=6, help='Number of domain walls')
+    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[3,4],[7,8],[11,12]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--precision', type=str, default='double', help='Precision type')
 

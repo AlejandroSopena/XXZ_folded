@@ -130,29 +130,152 @@ class XXZ_folded_one_domain:
 
         return circ_u0
 
+    def move_before(self, m):
+        if m==1:
+            circ = Circuit(9)
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,2,3))
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(3,5,4))
+            circ.add(gates.CNOT(4,0))
+            circ.add(gates.CNOT(4,1))
+            circ.add(gates.CNOT(4,6))
+            circ.add(gates.SWAP(7,8).controlled_by(4))
+            circ.add(gates.TOFFOLI(3,5,4))
+            circ.add(gates.CNOT(0,3))
+        else:
+            circ = Circuit(9 + int(self.D/2+1))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(2,3,5))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.CNOT(6,1))
+            circ.add(gates.CNOT(6,2))
+            circ.add(gates.CNOT(6,8))
+            for i in reversed(range(1, int(self.D/2+1))):
+                circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(0,1,5))
+            circ.add(gates.X(0))
+            circ.add(gates.X(4))
+            circ.add(gates.TOFFOLI(3,4,5))
+            circ.add(gates.X(4))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.CNOT(6,2))
+            circ.add(gates.CNOT(6,3))
+            circ.add(gates.CNOT(6,8))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(1,2,5))
+            circ.add(gates.X(2))
+
+        return circ
+    
+
+    def move_before(self, m):
+        if m==1:
+            circ = Circuit(12)
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(4,6,5))
+            circ.add(gates.CNOT(5,0))
+            circ.add(gates.CNOT(5,1))
+            circ.add(gates.CNOT(5,7))
+            circ.add(gates.SWAP(8,9).controlled_by(5))
+            circ.add(gates.SWAP(10,11).controlled_by(4))
+            circ.add(gates.TOFFOLI(4,6,5))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.X(2))
+            circ.add(gates.X(3))
+            circ.add(gates.TOFFOLI(2,3,4))
+            circ.add(gates.X(3))   
+            circ.add(gates.CNOT(0,4))         
+        else:
+            circ = Circuit(9 + int(self.D/2+1) + int(self.D/2))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(2,3,5))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.CNOT(6,1))
+            circ.add(gates.CNOT(6,2))
+            circ.add(gates.CNOT(6,8))
+            for i in reversed(range(1, int(self.D/2+1))):
+                circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
+            for i in reversed(range(1, int(self.D/2))):
+                circ.add(gates.SWAP(9+int(self.D/2+1)+i-1, 9+int(self.D/2+1)+i).controlled_by(5))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(0,1,5))
+            circ.add(gates.X(0))
+            circ.add(gates.X(4))
+            circ.add(gates.TOFFOLI(3,4,5))
+            circ.add(gates.X(4))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.CNOT(6,2))
+            circ.add(gates.CNOT(6,3))
+            circ.add(gates.CNOT(6,8))
+            circ.add(gates.TOFFOLI(5,7,6))
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(1,2,5))
+            circ.add(gates.X(2))
+
+        return circ
+    
+
+    def move_after(self, n_p):
+
+        circ = Circuit(9 + n_p)
+        circ.add(gates.X(2))
+        circ.add(gates.TOFFOLI(2,3,5))
+        circ.add(gates.X(2))
+        circ.add(gates.X(8))
+        circ.add(gates.TOFFOLI(5,8,6))
+        circ.add(gates.CNOT(6,1))
+        circ.add(gates.CNOT(6,2))
+        circ.add(gates.CNOT(6,7))
+        for i in reversed(range(1, n_p)):
+            circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
+        circ.add(gates.TOFFOLI(5,8,6))
+        circ.add(gates.X(0))
+        circ.add(gates.TOFFOLI(0,1,5))
+        circ.add(gates.X(0))
+        circ.add(gates.X(4))
+        circ.add(gates.TOFFOLI(3,4,5))
+        circ.add(gates.X(4))
+        circ.add(gates.TOFFOLI(5,8,6))
+        circ.add(gates.CNOT(6,2))
+        circ.add(gates.CNOT(6,3))
+        circ.add(gates.CNOT(6,7))
+        circ.add(gates.TOFFOLI(5,8,6))
+        circ.add(gates.X(8))
+        circ.add(gates.X(2))
+        circ.add(gates.TOFFOLI(1,2,5))
+        circ.add(gates.X(2))
+
+        return circ
+
+
+
+
+
+
+
     def get_D_circ_general(self):
-        aux = 2 + int(self.D/2) + 1 + int(self.D/2) + 1
+        aux = 2 + (int(self.D/2) + 2) + int(self.D/2) # R0, Rc, Rr
         nqubits_d = 2*self.N - self.D
-        r_r = list(range(nqubits_d+aux-(int(self.D/2) +1),nqubits_d+aux))
-        r_c = list(range(nqubits_d+aux-2*(int(self.D/2) +1),nqubits_d+aux-int(self.D/2) -1))
-        r_0 = list(range(nqubits_d+aux-2*(int(self.D/2) + 1)-2,nqubits_d+aux-2*(int(self.D/2) + 1))) 
+        r_0 = list(range(nqubits_d+aux-2*int(self.D/2)-2-2,nqubits_d+aux-2*int(self.D/2)-2)) 
+        r_c = list(range(nqubits_d+aux-2*int(self.D/2)-2,nqubits_d+aux-int(self.D/2)))
+        r_r = list(range(nqubits_d+aux-int(self.D/2),nqubits_d+aux))
         #[phys,r0,rc,rr]
         circ_d = Circuit(nqubits_d+aux)
+        print(nqubits_d+aux)
         print(aux)
-        circ_d.add(gates.X(r_c[0]))
-        circ_d.add(gates.X(r_r[0]))
+        circ_d.add(gates.X(r_c[1]))
         nqubits = circ_d.nqubits
-        # for domain in self.domain_pos:
-        #     index_domain = []
 
-        #     i = 1
-        #     for j in domain:
-        #         if j <= self.N - self.D:
-        #             index_domain.append(2*j-1)
-        #         else:
-        #             index_domain.append(2*(self.N-self.D)-1+i)
-        #             i += 1
-        #      circ_d.add([gates.X(index) for index in index_domain])  # define domain
 
         index_domain = []
         k = 1
@@ -172,169 +295,88 @@ class XXZ_folded_one_domain:
         for j in range(0, self.N - self.D):
             index_p.append(k)
             k += 2
-
-        index_domain = []
-        k = 1
-        for j in range(0, self.N - self.D):
-            index_domain.append(k)
-            k += 2
-        k -= 1
-        for j in range(self.N - self.D, self.N):
-            index_domain.append(k)
-            k += 1
         
-        #circ_d.add(gates.X(index_p[0])) # ADD MAGNON #
-        #print(index_p[3]
-        for p in reversed(index_p):
-        #for p in [index_p[5],index_p[4],index_p[3],index_p[2],index_p[1],index_p[0]]:#reversed(index_p):#,index_p[1],index_p[0]]:
-        #for p in [index_p[0]]:
-        #p = index_p[3]
+        circ_d.add(gates.X(index_p[4])) # ADD MAGNON #
+        #for n in reversed(range(len(index_p))):
+        for n in [6]:  
+            if n >= 1:
+                #MOVE DOMAIN BEFORE
+                circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2], r_r[0], r_r[1]]))
+                for qq in range(n-1):
+                    qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], index_p[n]] + r_c + r_r
+                    circ_d.add(self.move_before(2).on_qubits(*qubits))
 
-            circ_d.add(gates.SWAP(p, r_0[0]))
-            # Detect and move ni
-            print('p',p)
-            if p >= 2:
-                index_q = [-1] + index_domain
-                index_q_loop = [-1] + index_domain[0:index_p.index(p)-1]
-                for q in index_q_loop:
-                    index_q1 = index_q.index(q)
-                    circ_d.add(gates.X(index_q[index_q1+2]))
-                    circ_d.add(gates.X(
-                        r_0[1]).controlled_by(index_q[index_q1+2], index_q[index_q1+3], r_0[0]))
-                    circ_d.add(gates.X(index_q[index_q1+2]))
+                # for ii in range(int(self.D/2)):
+                #     circ_d.add(gates.CNOT(r_c[2+ii], r_r[ii]))
+                #MOVE DOMAIN AFTER
+                for index, qq in enumerate(range(n-1,n+self.D-4,2)):
+                    if index != 0:
+                        circ_d.add(gates.X(r_c[0]))
+                        circ_d.add(gates.TOFFOLI(r_c[0], r_c[2+index-1], r_c[1]))
+                        circ_d.add(gates.X(r_c[0]))
+                    circ_d.add(gates.TOFFOLI(r_c[0], r_c[2+index], r_c[1]))  
+                    qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], r_c[0], r_c[1]] + r_c[(2+index)::]
+                    circ_d.add(self.move_after(n_p=len(r_c[(2+index)::])).on_qubits(*qubits))
+                    qq+=1
+                    qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], r_c[0], r_c[1]] + r_c[(2+index)::]
+                    circ_d.add(self.move_after(n_p=len(r_c[(2+index)::])).on_qubits(*qubits))
 
-                    circ_d.add(gates.CNOT(r_0[1], index_q[index_q1+1]))
-                    circ_d.add(gates.CNOT(r_0[1], index_q[index_q1+2]))
-                    for ii in reversed(range(1,len(r_c))):
-                        circ_d.add(gates.SWAP(r_c[ii-1], r_c[ii]).controlled_by(r_0[1]))
+                circ_d.add(gates.TOFFOLI(r_c[0], r_c[-2], r_c[1]))  
+                for ii in reversed(range(2,len(r_c)-2)):
+                    circ_d.add(gates.CNOT(r_c[ii], r_c[1]))
 
-                    if q == -1:
-                        circ_d.add(
-                            gates.X(r_0[1]).controlled_by(index_q[index_q1+1], r_0[0]))
-                    else:
-                        circ_d.add(gates.X(q))
-                        circ_d.add(gates.X(r_0[1]).controlled_by(q,
-                                    index_q[index_q1+1], r_0[0]))
-                        circ_d.add(gates.X(q))
+                circ_d.add(gates.X(index_domain[n+self.D-2]))
+                circ_d.add(gates.TOFFOLI(index_domain[n+self.D-2],index_domain[n+self.D-1],r_0[0]))
+                circ_d.add(gates.X(index_domain[n+self.D-2]))
+                circ_d.add(gates.X(index_domain[n+self.D-3]))
+                circ_d.add(gates.TOFFOLI(index_domain[n+self.D-3],index_domain[n+self.D-2],r_0[0]))
+                circ_d.add(gates.X(index_domain[n+self.D-3]))
 
-            i2 = index_p.index(p)
-            for index_q, q in enumerate(index_domain[1:i2]): #no +2 ############ CHANGE
-                # Detect and move nf
-                circ_d.add(gates.X(index_domain[1+index_q+3]))  # 6))
-                circ_d.add(gates.X(
-                    r_0[1]).controlled_by(index_domain[1+index_q+2], index_domain[1+index_q+3], r_0[0]))
-                circ_d.add(gates.X(index_domain[1+index_q+3]))
+                circ_d.add(gates.X(index_domain[n+self.D]))
+                circ_d.add(gates.TOFFOLI(index_domain[n+self.D-1],index_domain[n+self.D],r_0[0]))
+                circ_d.add(gates.X(index_domain[n+self.D]))
+                circ_d.add(gates.X(index_domain[n+self.D-1]))
+                circ_d.add(gates.TOFFOLI(index_domain[n+self.D-2],index_domain[n+self.D-1],r_0[0]))
+                circ_d.add(gates.X(index_domain[n+self.D-1]))
 
-                circ_d.add(gates.CNOT(r_0[1], index_domain[1+index_q+1]))
-                circ_d.add(gates.CNOT(r_0[1], index_domain[1+index_q+2]))
 
-                circ_d.add(gates.X(index_domain[1+index_q+1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(q,
-                            index_domain[1+index_q+1], r_0[0]))
-                circ_d.add(gates.X(index_domain[1+index_q+1]))
+            #ADD MAGNON
+            circ_d.add(gates.TOFFOLI(index_p[n], r_c[1], index_domain[n]))
+            for i, ii in enumerate(index_domain[n+1:n+self.D:2]):
+                circ_d.add(gates.TOFFOLI(r_c[0], r_c[i+2], ii))
+                circ_d.add(gates.X(r_c[0]))
+                circ_d.add(gates.TOFFOLI(r_c[0], r_c[i+2], index_domain[index_domain.index(ii)+1]))
+                circ_d.add(gates.X(r_c[0]))
 
-            #insert magnon
-            ip = index_p.index(p)
-            circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip], r_0[0]))
-            circ_d.add(gates.X(index_domain[ip]).controlled_by(r_0[0],r_c[0]))
-            for i, ii in enumerate(index_domain[ip+1:ip+self.D:2]):
-                circ_d.add(gates.X(ii).controlled_by(r_0[1],r_c[i+1]))
-                circ_d.add(gates.X(r_0[1]))
-                circ_d.add(gates.X(index_domain[index_domain.index(ii)+1]).controlled_by(r_0[1],r_c[i+1]))
-                circ_d.add(gates.X(r_0[1]))
-            if ip >= 1:
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip-1],index_domain[ip],r_0[0]))
-
-            # #reset
-            #if p != index_p[0]:
-            ip = index_p.index(p)
-            #print(ip,self.N-self.D-1)
-            if ip == 0:
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(gates.X(r_0[0]).controlled_by(index_domain[ip], index_domain[ip+1]))
-                # circ_d.add(gates.CNOT(r_0[1],r_0[0]))
-                # circ_d.add(gates.CNOT(r_0[1],r_c[0]))
-                # circ_d.add(gates.CNOT(r_0[1],r_c[1]))
-                #circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-                #circ_d.add(gates.X(r_0[1])) #############
+            #RESET
+              #RESET R_aux_n
+            if n==0:
+                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
             else:
-                circ_d.add(gates.X(index_domain[ip-1]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-                circ_d.add(gates.X(r_0[0]).controlled_by(index_domain[ip-1], index_domain[ip], index_domain[ip+1]))
-                circ_d.add(gates.X(index_domain[ip-1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip-1], index_domain[ip], index_domain[ip+1],index_domain[ip+2]))
-                circ_d.add(gates.CNOT(r_0[1],r_0[0]))
-                circ_d.add(gates.CNOT(r_0[1],r_c[0]))
-                circ_d.add(gates.CNOT(r_0[1],r_c[1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[ip-1], index_domain[ip], index_domain[ip+1],index_domain[ip+2]))
-                circ_d.add(gates.X(index_domain[ip+1]))
-                #####
-                ll = int(min(ip,4))
-                index_start = 1#int(min(1,ip-3))
-                print('aa',index_start)
-                for ii in range(index_start,ip): #range(ip-ll,ip):#range(index_start,ip):#range(ip-ll,ip):
-                    circ_d.add(gates.X(index_domain[ii+1]))
-                    for jj in reversed(range(1,len(r_r))):
-                        circ_d.add(gates.SWAP(r_r[jj-1], r_r[jj]).controlled_by(index_domain[ii],index_domain[ii+1]))
-                    circ_d.add(gates.X(index_domain[ii+1]))
-
-            
-            for index_iip,iip in enumerate(range(ip+2,ip+self.D,2)):
-                circ_d.add(gates.X(index_domain[iip-1]))
-                circ_d.add(gates.X(index_domain[iip+1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1]))
-                circ_d.add(gates.X(r_0[0]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_c[0]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_c[index_iip+1]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1]))
-                circ_d.add(gates.X(index_domain[iip-1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1],index_domain[iip+2]))
-                circ_d.add(gates.X(r_0[0]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_c[0]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_c[index_iip+2]).controlled_by(r_r[index_iip+1],r_0[1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1],index_domain[iip+2]))
-                circ_d.add(gates.X(index_domain[iip+1]))
-                if ip != 0:
-                    index_start = iip - 2
-                    for ii in range(index_start,iip): #range(iip-2,iip):
-                        circ_d.add(gates.X(index_domain[ii+1]))
-                        for jj in reversed(range(1,len(r_r))):
-                            circ_d.add(gates.SWAP(r_r[jj-1], r_r[jj]).controlled_by(index_domain[ii],index_domain[ii+1]))
-                        circ_d.add(gates.X(index_domain[ii+1]))
-
-            iip = ip+self.D
-            #index_iip = int(self.D/2) - 1
-            circ_d.add(gates.X(index_domain[iip-1]))
-            print(ip,self.N-self.D-1)
-            if ip < self.N-self.D-1:
-                circ_d.add(gates.X(index_domain[iip+1]))
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1]))
+                circ_d.add(gates.X(index_domain[n-1]))
+                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
+            circ_d.add(gates.X(index_domain[n+1]))
+            circ_d.add(gates.TOFFOLI(index_domain[n+1], r_0[0], index_p[n]))
+            circ_d.add(gates.X(index_domain[n+1]))
+            if n==0:
+                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
             else:
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip]))
-            circ_d.add(gates.X(r_0[0]).controlled_by(r_r[-1],r_0[1]))
-            circ_d.add(gates.X(r_c[0]).controlled_by(r_r[-1],r_0[1]))
-            circ_d.add(gates.X(r_c[-1]).controlled_by(r_r[-1],r_0[1]))
-            if ip < self.N-self.D-1:
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip], index_domain[iip+1]))
-                circ_d.add(gates.X(index_domain[iip+1]))
-            else:
-                circ_d.add(gates.X(r_0[1]).controlled_by(index_domain[iip-1], index_domain[iip]))
-            circ_d.add(gates.X(index_domain[iip-1]))
-            ll = int(min(ip,3))
-            index_start = 1#int(max(1,ip-3))
-            for ii in reversed(range(index_start,ip+self.D-2)):#reversed(range(ip-ll,ip+self.D-2)):#reversed(range(index_start,ip+self.D-2)):#reversed(range(ip-ll,ip+self.D-2)):
-                circ_d.add(gates.X(index_domain[ii+1]))
-                for jj in range(1,len(r_r)):
-                    circ_d.add(gates.SWAP(r_r[jj-1], r_r[jj]).controlled_by(index_domain[ii],index_domain[ii+1]))
-                circ_d.add(gates.X(index_domain[ii+1]))
+                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
+                circ_d.add(gates.X(index_domain[n-1]))
+            for ii in r_c[2::]:
+                circ_d.add(gates.CNOT(ii, index_p[n]))
+
+
 
         self.circ_d = circ_d
         sym_state = circ_d().symbolic()
         sym_state = sym_state[7:-1]
         new_state = ''.join([sym_state[i] for i in index_domain])
         print(new_state)
-        print(''.join([sym_state[i] for i in r_0+r_c+r_r]))
+        print('r_0',''.join([sym_state[i] for i in r_0]))
+        print('r_c',''.join([sym_state[i] for i in r_c]))
+        print('r_r',''.join([sym_state[i] for i in r_r]))
+        print('r_aux',''.join([sym_state[i] for i in index_p]))
 
         return circ_d
 
