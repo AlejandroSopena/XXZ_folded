@@ -19,6 +19,20 @@ from qibo.hamiltonians import SymbolicHamiltonian
 
 from XXZ_folded import XXZ_folded_one_domain
 
+def density_matrix_to_state_vector(rho):
+    # Check if the density matrix represents a pure state by verifying Tr(rho^2) = 1
+    if np.isclose(np.trace(rho @ rho), 1.0):
+        # Perform eigendecomposition to get the eigenvalues and eigenvectors
+        eigenvalues, eigenvectors = np.linalg.eigh(rho)
+        
+        # The pure state corresponds to the eigenvector with eigenvalue close to 1
+        pure_state_index = np.argmax(eigenvalues)
+        pure_state_vector = eigenvectors[:, pure_state_index]
+        
+        return pure_state_vector
+    else:
+        raise ValueError("The density matrix does not represent a pure state.")
+    
 def main():
     parser = argparse.ArgumentParser(description="Run simulation with specified parameters.")
     parser.add_argument('--basis_gates', nargs='+', default=['cx', 'rz', 'sx', 'x', 'id'], help='List of basis gates')
@@ -26,11 +40,12 @@ def main():
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=5, help='Number of qubits')
-    parser.add_argument('--M', type=int, default=1, help='Number of domain walls')
-    parser.add_argument('--domain_pos', nargs='+', type=int, default=[3, 4], help='Domain positions')
-    parser.add_argument('--connectivity', type=str, default='google_sycamore', help='Connectivity type')
-    parser.add_argument('--precision', type=str, default='single', help='Precision type')
+    parser.add_argument('--N', type=int, default=10, help='Number of qubits')
+    parser.add_argument('--M', type=int, default=1, help='Number of magnons')
+    parser.add_argument('--D', type=float, default=2, help='Number of domain walls')
+    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[3,4]], help='Domain positions') # [[4,5],[8,9]]
+    parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
+    parser.add_argument('--precision', type=str, default='double', help='Precision type')
 
     args = parser.parse_args()
 
@@ -41,6 +56,7 @@ def main():
     path = args.path
     N = args.N
     M = args.M
+    D = args.D
     domain_pos = args.domain_pos
     connectivity = args.connectivity
     precision = args.precision
@@ -71,16 +87,19 @@ def main():
     os.makedirs(path+'/training_states', exist_ok=True)
 
     set_backend("qibojit", platform="numba")
-    set_threads(15)
+    set_threads(20)
 
-    model = XXZ_folded_one_domain(N, M, domain_pos)
+    model = XXZ_folded_one_domain(N, M, D, domain_pos)
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
+    set_precision('single')
     circ_d = model.get_D_circ()
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
     circ = model.get_full_circ()
+
+    #print(circ().symbolic())
 
     circ_qiskit = model.circ_to_qiskit(circ)
 
@@ -98,15 +117,19 @@ def main():
     print(circ.depth)
     print(circ.nqubits)
 
-    model.circ_full = circ
+    #model.circ_full = circ
 
-    set_backend("qibojit",platform="cupy")
+    set_backend("qibojit",platform="numba")
     set_precision(precision)
-    backend = construct_backend("qibojit",platform="cupy")
+    backend = construct_backend("qibojit",platform="numba")
     backend.set_precision(precision)
 
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final, backend=backend)
-
+    # s = cp.asnumpy(state_noiseless)
+    # s = density_matrix_to_state_vector(s)
+    # s = cp.array(s)
+    # print(np.where(abs(s)>1e-10))
+    #print(np.where(abs(np.linalg.eigvals(s))>1e-10))
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
@@ -116,6 +139,11 @@ def main():
         Q1_noiseless = float(Q1_noiseless.get())
         Q2_noiseless = float(Q2_noiseless.get())
         
+    fid_ham, fid_q1, fid_q2 = model.check_fidelity(state_noiseless, boundaries=boundaries)
+    print("  Fidelity Hamiltonian: ", fid_ham)
+    print("  Fidelity Q1: ", fid_q1)
+    print("  Fidelity Q2: ", fid_q2)
+
     print('Noiseless')
     print("  Energy: ", energy_noiseless)
     print("  Q1: ", Q1_noiseless)
