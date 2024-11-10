@@ -128,54 +128,15 @@ class XXZ_folded_one_domain:
                                 j).controlled_by(self.N-self.D+1+j))
         self.circ_u0 = circ_u0
 
-        return circ_u0
-
-    def move_before(self, m):
-        if m==1:
-            circ = Circuit(9)
-            circ.add(gates.X(1))
-            circ.add(gates.TOFFOLI(1,2,3))
-            circ.add(gates.X(1))
-            circ.add(gates.TOFFOLI(3,5,4))
-            circ.add(gates.CNOT(4,0))
-            circ.add(gates.CNOT(4,1))
-            circ.add(gates.CNOT(4,6))
-            circ.add(gates.SWAP(7,8).controlled_by(4))
-            circ.add(gates.TOFFOLI(3,5,4))
-            circ.add(gates.CNOT(0,3))
-        else:
-            circ = Circuit(9 + int(self.D/2+1))
-            circ.add(gates.X(2))
-            circ.add(gates.TOFFOLI(2,3,5))
-            circ.add(gates.X(2))
-            circ.add(gates.TOFFOLI(5,7,6))
-            circ.add(gates.CNOT(6,1))
-            circ.add(gates.CNOT(6,2))
-            circ.add(gates.CNOT(6,8))
-            for i in reversed(range(1, int(self.D/2+1))):
-                circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
-            circ.add(gates.TOFFOLI(5,7,6))
-            circ.add(gates.X(0))
-            circ.add(gates.TOFFOLI(0,1,5))
-            circ.add(gates.X(0))
-            circ.add(gates.X(4))
-            circ.add(gates.TOFFOLI(3,4,5))
-            circ.add(gates.X(4))
-            circ.add(gates.TOFFOLI(5,7,6))
-            circ.add(gates.CNOT(6,2))
-            circ.add(gates.CNOT(6,3))
-            circ.add(gates.CNOT(6,8))
-            circ.add(gates.TOFFOLI(5,7,6))
-            circ.add(gates.X(2))
-            circ.add(gates.TOFFOLI(1,2,5))
-            circ.add(gates.X(2))
-
-        return circ
-    
+        return circ_u0    
 
     def move_before(self, m):
         if m==1:
             circ = Circuit(12)
+            circ.add(gates.CNOT(0,4))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(0,1,4))
+            circ.add(gates.X(0))
             circ.add(gates.X(1))
             circ.add(gates.TOFFOLI(1,2,4))
             circ.add(gates.X(1))
@@ -184,7 +145,7 @@ class XXZ_folded_one_domain:
             circ.add(gates.CNOT(5,1))
             circ.add(gates.CNOT(5,7))
             circ.add(gates.SWAP(8,9).controlled_by(5))
-            circ.add(gates.SWAP(10,11).controlled_by(4))
+            circ.add(gates.SWAP(10,11).controlled_by(4)) 
             circ.add(gates.TOFFOLI(4,6,5))
             circ.add(gates.X(2))
             circ.add(gates.TOFFOLI(1,2,4))
@@ -194,7 +155,7 @@ class XXZ_folded_one_domain:
             circ.add(gates.X(3))   
             circ.add(gates.CNOT(0,4))         
         else:
-            circ = Circuit(9 + int(self.D/2+1) + int(self.D/2))
+            circ = Circuit(9 + int(self.D/2+1) + int(self.D/2) + 1)
             circ.add(gates.X(2))
             circ.add(gates.TOFFOLI(2,3,5))
             circ.add(gates.X(2))
@@ -204,7 +165,7 @@ class XXZ_folded_one_domain:
             circ.add(gates.CNOT(6,8))
             for i in reversed(range(1, int(self.D/2+1))):
                 circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
-            for i in reversed(range(1, int(self.D/2))):
+            for i in reversed(range(1, int(self.D/2)+1)):
                 circ.add(gates.SWAP(9+int(self.D/2+1)+i-1, 9+int(self.D/2+1)+i).controlled_by(5))
             circ.add(gates.TOFFOLI(5,7,6))
             circ.add(gates.X(0))
@@ -256,24 +217,130 @@ class XXZ_folded_one_domain:
         circ.add(gates.X(2))
 
         return circ
+    
+    def p_scan_w(self,num_scan):
+        np = int(self.D/2) + 1
+        circ = Circuit(np+num_scan+1)
+        for qq in reversed(range(np+1,np+num_scan)):
+            circ.add(gates.X(qq-1))
+            circ.add(gates.TOFFOLI(qq-1,qq,np+num_scan))
+            circ.add(gates.X(qq-1))
+        for i in reversed(range(1, np)):
+            circ.add(gates.SWAP(i-1, i).controlled_by(np+num_scan))
+        for qq in range(np,np+num_scan-1):
+            circ.add(gates.X(qq))
+            circ.add(gates.TOFFOLI(qq,qq+1,np+num_scan))
+            circ.add(gates.X(qq))
 
+        return circ
+    
+    def reset0_w(self, n=None):
+        if n == 'last':
+            circ = Circuit(7)
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,2,3))
+            circ.add(gates.TOFFOLI(0,3,5))
+            circ.add(gates.CNOT(0,4))
+            circ.add(gates.X(0))
+            circ.add(gates.CNOT(0,4))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(3,4,6))
+            circ.add(gates.CNOT(0,4))
+            circ.add(gates.X(0))
+            circ.add(gates.CNOT(0,4))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(1,2,3))
+            circ.add(gates.X(1))
+        else:
+            circ = Circuit(8)
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.TOFFOLI(0,4,6))
+            circ.add(gates.CNOT(0,5))
+            circ.add(gates.X(3))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(0,3,5))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(4,5,7))
+            circ.add(gates.CNOT(0,5))
+            circ.add(gates.X(0))
+            circ.add(gates.TOFFOLI(0,3,5))
+            circ.add(gates.X(0))
+            circ.add(gates.X(3))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.X(1))
 
+        return circ
+    
+    def reset_w(self, n=None):
 
+        if n == 'last':
+            circ = Circuit(9)
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(2,3,4))
+            circ.add(gates.TOFFOLI(1,4,6))
+            circ.add(gates.TOFFOLI(0,6,7))
+            circ.add(gates.X(1))
+            circ.add(gates.CNOT(1,5))
+            circ.add(gates.TOFFOLI(4,5,6))
+            circ.add(gates.TOFFOLI(0,6,8))
+            circ.add(gates.TOFFOLI(4,5,6))
+            circ.add(gates.CNOT(1,5))
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,4,6))
+            circ.add(gates.TOFFOLI(2,3,4))
+            circ.add(gates.X(2))
+        else:
+            circ = Circuit(10)
+            circ.add(gates.X(2))
+            circ.add(gates.TOFFOLI(2,3,5))
+            circ.add(gates.TOFFOLI(1,5,7))
+            circ.add(gates.TOFFOLI(0,7,8))
+            circ.add(gates.X(4))
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,4,6))
+            circ.add(gates.TOFFOLI(5,6,7))
+            circ.add(gates.TOFFOLI(0,7,9))
+            circ.add(gates.TOFFOLI(5,6,7))
+            circ.add(gates.TOFFOLI(1,4,6))
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,5,7))
+            circ.add(gates.X(4))
+            circ.add(gates.TOFFOLI(2,3,5))
+            circ.add(gates.X(2))
 
+        return circ
+
+    def ip_scan_w(self,num_scan):
+        np = int(self.D/2) + 1
+        circ = Circuit(np+num_scan+1)
+        for qq in reversed(range(np+1,np+num_scan)):
+            circ.add(gates.X(qq-1))
+            circ.add(gates.TOFFOLI(qq-1,qq,np+num_scan))
+            circ.add(gates.X(qq-1))
+        for i in range(np-1):
+            circ.add(gates.SWAP(i, i+1).controlled_by(np+num_scan))
+        for qq in range(np,np+num_scan-1):
+            circ.add(gates.X(qq))
+            circ.add(gates.TOFFOLI(qq,qq+1,np+num_scan))
+            circ.add(gates.X(qq))
+
+        return circ
 
 
 
     def get_D_circ_general(self):
-        aux = 2 + (int(self.D/2) + 2) + int(self.D/2) # R0, Rc, Rr
+        aux = 2 + (int(self.D/2) + 2) + (int(self.D/2)+1) # R0, Rc, Rr
         nqubits_d = 2*self.N - self.D
-        r_0 = list(range(nqubits_d+aux-2*int(self.D/2)-2-2,nqubits_d+aux-2*int(self.D/2)-2)) 
-        r_c = list(range(nqubits_d+aux-2*int(self.D/2)-2,nqubits_d+aux-int(self.D/2)))
-        r_r = list(range(nqubits_d+aux-int(self.D/2),nqubits_d+aux))
+        r_0 = list(range(nqubits_d+aux-2*int(self.D/2)-2-2-1,nqubits_d+aux-2*int(self.D/2)-2-1)) 
+        r_c = list(range(nqubits_d+aux-2*int(self.D/2)-2-1,nqubits_d+aux-int(self.D/2)-1))
+        r_r = list(range(nqubits_d+aux-int(self.D/2)-1,nqubits_d+aux))
         #[phys,r0,rc,rr]
         circ_d = Circuit(nqubits_d+aux)
         print(nqubits_d+aux)
         print(aux)
         circ_d.add(gates.X(r_c[1]))
+        circ_d.add(gates.X(r_r[0]))
         nqubits = circ_d.nqubits
 
 
@@ -296,10 +363,10 @@ class XXZ_folded_one_domain:
             index_p.append(k)
             k += 2
         
-        circ_d.add(gates.X(index_p[4])) # ADD MAGNON #
+        circ_d.add(gates.X(index_p[3])) # ADD MAGNON #
         #for n in reversed(range(len(index_p))):
-        for n in [6]:  
-            if n >= 1:
+        for n in [3]:  
+            if n >= 2:
                 #MOVE DOMAIN BEFORE
                 circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2], r_r[0], r_r[1]]))
                 for qq in range(n-1):
@@ -321,7 +388,8 @@ class XXZ_folded_one_domain:
                     qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], r_c[0], r_c[1]] + r_c[(2+index)::]
                     circ_d.add(self.move_after(n_p=len(r_c[(2+index)::])).on_qubits(*qubits))
 
-                circ_d.add(gates.TOFFOLI(r_c[0], r_c[-2], r_c[1]))  
+                if self.D > 2:
+                    circ_d.add(gates.TOFFOLI(r_c[0], r_c[-2], r_c[1]))  
                 for ii in reversed(range(2,len(r_c)-2)):
                     circ_d.add(gates.CNOT(r_c[ii], r_c[1]))
 
@@ -349,7 +417,7 @@ class XXZ_folded_one_domain:
                 circ_d.add(gates.X(r_c[0]))
 
             #RESET
-              #RESET R_aux_n
+              #RESET R_aux_n, second qubit Rc
             if n==0:
                 circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
             else:
@@ -365,6 +433,97 @@ class XXZ_folded_one_domain:
                 circ_d.add(gates.X(index_domain[n-1]))
             for ii in r_c[2::]:
                 circ_d.add(gates.CNOT(ii, index_p[n]))
+                circ_d.add(gates.CNOT(ii, r_c[1]))
+
+
+              #RESET Rc
+            if n>= 2:
+                num_scan = 3
+                if self.D > 2:
+                    if n == len(index_p)-1:
+                        circ_d.add(self.reset0_w(n='last').on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], r_0[0], r_0[1], r_c[0], r_c[2]]))
+                    else:      
+                        circ_d.add(self.reset0_w(n=None).on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], index_domain[n+3], r_0[0], r_0[1], r_c[0], r_c[2]]))
+                    q_r = r_r + [index_domain[n-1],index_domain[n], index_domain[n+1], r_0[0]]
+                    circ_d.add(self.p_scan_w(num_scan).on_qubits(*q_r))
+
+                for index, qq in enumerate(range(n+4,n+self.D,2)):
+                    q_r = [r_r[index+2], index_domain[qq-2],index_domain[qq-1], index_domain[qq], index_domain[qq+1]] + r_0 + [index_p[n]] + [r_c[0], r_c[3+index]]
+                    circ_d.add(self.reset_w().on_qubits(*q_r))
+                    q_r = r_r + [index_domain[qq-3],index_domain[qq-2], index_domain[qq-1], r_0[0]]
+                    circ_d.add(self.p_scan_w(num_scan).on_qubits(*q_r))
+
+
+                qq = n + self.D
+                if n == len(index_p)-1:
+                    q_r = [r_r[-1], index_domain[qq-2],index_domain[qq-1], index_domain[qq]] + r_0 + [index_p[n]] + [r_c[0], r_c[-1]]
+                    circ_d.add(self.reset_w('last').on_qubits(*q_r))
+                else:
+                    q_r = [r_r[-1], index_domain[qq-2],index_domain[qq-1], index_domain[qq], index_domain[qq+1]] + r_0 + [index_p[n]] + [r_c[0], r_c[-1]]
+                    circ_d.add(self.reset_w().on_qubits(*q_r))
+
+
+              #RESET Rr
+
+
+            # if n>= 2:
+            #     print('a',n+self.D-4)
+
+
+            #     n_iter = 4
+            #     print(n,n_iter)
+            #     if n + 1 <= n_iter:
+            #         q_r = r_r + [index_domain[j] for j in range(n+1)] + [r_0[0]]
+            #         circ_d.add(self.ip_scan_w(num_scan=(n+1)).on_qubits(*q_r))
+            #     else:
+            #         num_scans = int((n + 1 - n_iter)/4)
+            #         if num_scans ==0:
+            #             q_r = r_r + [index_domain[j] for j in range(n_iter-1,n+1)] + [r_0[0]]
+            #             circ_d.add(self.ip_scan_w(num_scan=(n+2-n_iter)).on_qubits(*q_r))
+            #         else:
+            #             end = n+1
+            #             if n_iter-1 + 4*num_scans < n:
+            #                 q_r = r_r + [index_domain[j] for j in range(int(n_iter - 1 + 4*num_scans) ,n+1)] + [r_0[0]]
+            #                 circ_d.add(self.ip_scan_w(num_scan=(int(n+2-n_iter-4*num_scans))).on_qubits(*q_r))
+            #                 end = int(n_iter - 1 + 4*num_scans)
+
+            #             for i in range(num_scans):
+            #                 q_r = r_r + [index_domain[j] for j in range(end-5,end)] + [r_0[0]]
+            #                 circ_d.add(self.ip_scan_w(num_scan=5).on_qubits(*q_r))
+            #                 end -= 4
+
+            #         q_r = r_r + [index_domain[j] for j in range(n_iter)] + [r_0[0]]
+            #         circ_d.add(self.ip_scan_w(num_scan=(n_iter)).on_qubits(*q_r))
+
+
+            if n>= 2:
+                print('a',n+self.D-4)
+
+
+                n_iter = 4
+                print(n,n_iter)
+                if n+self.D-3+1 <= n_iter:
+                    q_r = r_r + [index_domain[j] for j in range(n+self.D-3+1)] + [r_0[0]]
+                    circ_d.add(self.ip_scan_w(num_scan=(n+self.D-3+1)).on_qubits(*q_r))
+                else:
+                    num_scans = int((n + 1 - n_iter)/4)
+                    if num_scans ==0:
+                        q_r = r_r + [index_domain[j] for j in range(n_iter-1,n+1)] + [r_0[0]]
+                        circ_d.add(self.ip_scan_w(num_scan=(n+2-n_iter)).on_qubits(*q_r))
+                    else:
+                        end = n+1
+                        if n_iter-1 + 4*num_scans < n:
+                            q_r = r_r + [index_domain[j] for j in range(int(n_iter - 1 + 4*num_scans) ,n+1)] + [r_0[0]]
+                            circ_d.add(self.ip_scan_w(num_scan=(int(n+2-n_iter-4*num_scans))).on_qubits(*q_r))
+                            end = int(n_iter - 1 + 4*num_scans)
+
+                        for i in range(num_scans):
+                            q_r = r_r + [index_domain[j] for j in range(end-5,end)] + [r_0[0]]
+                            circ_d.add(self.ip_scan_w(num_scan=5).on_qubits(*q_r))
+                            end -= 4
+
+                    q_r = r_r + [index_domain[j] for j in range(n_iter)] + [r_0[0]]
+                    circ_d.add(self.ip_scan_w(num_scan=(n_iter)).on_qubits(*q_r))
 
 
 
@@ -774,7 +933,7 @@ class XXZ_folded_one_domain:
         elif self.N == 6 and self.M == 1 and self.D == 2:
             aux = 3
         else:
-            aux = 2 + int(self.D/2) + 1 + int(self.D/2) + 1
+            aux = 2 + int(self.D/2) + 2 + int(self.D/2) + 1
         circ_full = Circuit(2*self.N-self.D+aux+aux_qubits1)
 
         index_p = []
