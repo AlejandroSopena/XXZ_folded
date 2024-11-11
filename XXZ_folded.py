@@ -226,11 +226,11 @@ class XXZ_folded_one_domain:
             circ.add(gates.TOFFOLI(qq-1,qq,np+num_scan))
             circ.add(gates.X(qq-1))
         if qubit_0:
-            circ.add(gates.CNOT(0,np+num_scan))
+            circ.add(gates.CNOT(np,np+num_scan))
         for i in reversed(range(1, np)):
             circ.add(gates.SWAP(i-1, i).controlled_by(np+num_scan))
         if qubit_0:
-            circ.add(gates.CNOT(0,np+num_scan))
+            circ.add(gates.CNOT(np,np+num_scan))
         for qq in range(np,np+num_scan-1):
             circ.add(gates.X(qq))
             circ.add(gates.TOFFOLI(qq,qq+1,np+num_scan))
@@ -323,11 +323,11 @@ class XXZ_folded_one_domain:
             circ.add(gates.TOFFOLI(qq-1,qq,np+num_scan))
             circ.add(gates.X(qq-1))
         if qubit_0:
-            circ.add(gates.CNOT(0,np+num_scan))
+            circ.add(gates.CNOT(np,np+num_scan))
         for i in range(np-1):
             circ.add(gates.SWAP(i, i+1).controlled_by(np+num_scan))
         if qubit_0:
-            circ.add(gates.CNOT(0,np+num_scan))
+            circ.add(gates.CNOT(np,np+num_scan))
         for qq in range(np,np+num_scan-1):
             circ.add(gates.X(qq))
             circ.add(gates.TOFFOLI(qq,qq+1,np+num_scan))
@@ -371,9 +371,9 @@ class XXZ_folded_one_domain:
             index_p.append(k)
             k += 2
         
-        circ_d.add(gates.X(index_p[3])) # ADD MAGNON #
+        circ_d.add(gates.X(index_p[1])) # ADD MAGNON #
         #for n in reversed(range(len(index_p))):
-        for n in [3]:  
+        for n in [1]:  
             if n >= 2:
                 #MOVE DOMAIN BEFORE
                 circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2]]))
@@ -444,7 +444,7 @@ class XXZ_folded_one_domain:
                     phys_q = [index_domain[j] for j in range(start,end_rest)]
                     q_r = r_r + phys_q + [r_0[0]]                    
                     if phys_q[0] == index_domain[0]:
-                        qubit_0 = False
+                        qubit_0 = True
                     else:
                         qubit_0 = False
                     circ_d.add(self.p_scan_w(num_scan=(end_rest-start),qubit_0=qubit_0).on_qubits(*q_r))
@@ -454,7 +454,7 @@ class XXZ_folded_one_domain:
                         phys_q = [index_domain[j] for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         if phys_q[0] == index_domain[0]:
-                            qubit_0 = False
+                            qubit_0 = True
                         else:
                             qubit_0 = False
                         circ_d.add(self.p_scan_w(num_scan=step,qubit_0=qubit_0).on_qubits(*q_r))
@@ -462,11 +462,7 @@ class XXZ_folded_one_domain:
                         print([j for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
-                        if phys_q[0] == index_domain[0]:
-                            qubit_0 = False
-                        else:
-                            qubit_0 = False
-                        circ_d.add(self.p_scan_w(num_scan=step+1,qubit_0=qubit_0).on_qubits(*q_r))
+                        circ_d.add(self.p_scan_w(num_scan=step+1).on_qubits(*q_r))
 
             #   RESET R_aux_n, second qubit Rc
             if n==0:
@@ -538,7 +534,7 @@ class XXZ_folded_one_domain:
                         phys_q = [index_domain[j] for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         if phys_q[0] == index_domain[0]:
-                            qubit_0 = False
+                            qubit_0 = True
                         else:
                             qubit_0 = False
                         circ_d.add(self.ip_scan_w(num_scan=step,qubit_0=qubit_0).on_qubits(*q_r))
@@ -546,11 +542,7 @@ class XXZ_folded_one_domain:
                         print([j for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
-                        if phys_q[0] == index_domain[0]:
-                            qubit_0 = False
-                        else:
-                            qubit_0 = False
-                        circ_d.add(self.ip_scan_w(num_scan=step+1,qubit_0=qubit_0).on_qubits(*q_r))
+                        circ_d.add(self.ip_scan_w(num_scan=step+1).on_qubits(*q_r))
 
                 if rest > 1:
                     if num_scans == 0:
@@ -561,7 +553,7 @@ class XXZ_folded_one_domain:
                     phys_q = [index_domain[j] for j in range(start,end_rest)]
                     q_r = r_r + phys_q + [r_0[0]]
                     if phys_q[0] == index_domain[0]:
-                        qubit_0 = False
+                        qubit_0 = True
                     else:
                         qubit_0 = False
                     circ_d.add(self.ip_scan_w(num_scan=(end_rest-start),qubit_0=qubit_0).on_qubits(*q_r))
