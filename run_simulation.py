@@ -40,10 +40,10 @@ def main():
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=13, help='Number of qubits')
+    parser.add_argument('--N', type=int, default=9, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of magnons')
-    parser.add_argument('--D', type=float, default=6, help='Number of domain walls')
-    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[3,4],[7,8],[11,12]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
+    parser.add_argument('--D', type=float, default=4, help='Number of domain walls')
+    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[4,5],[8,9]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--precision', type=str, default='double', help='Precision type')
 
@@ -99,8 +99,6 @@ def main():
 
     circ = model.get_full_circ()
 
-    #print(circ().symbolic())
-
     circ_qiskit = model.circ_to_qiskit(circ)
 
     circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='sabre',routing_method='sabre')
@@ -124,6 +122,7 @@ def main():
     backend = construct_backend("qibojit",platform="numba")
     backend.set_precision(precision)
 
+    layout_final = None
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final, backend=backend)
     # s = cp.asnumpy(state_noiseless)
     # s = density_matrix_to_state_vector(s)
