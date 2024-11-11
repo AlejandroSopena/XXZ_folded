@@ -435,7 +435,7 @@ class XXZ_folded_one_domain:
                 rest = int(end - step*num_scans)
                 print(end,num_scans,rest)
                 #if rest == 1:
-                if rest > 0:
+                if rest > 1:
                     if num_scans == 0:
                         end_rest = end
                     else:
