@@ -40,10 +40,10 @@ def main():
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=9, help='Number of qubits')
-    parser.add_argument('--M', type=int, default=1, help='Number of magnons')
-    parser.add_argument('--D', type=float, default=4, help='Number of domain walls')
-    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[4,5],[8,9]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
+    parser.add_argument('--N', type=int, default=14, help='Number of qubits')
+    parser.add_argument('--M', type=int, default=2, help='Number of magnons')
+    parser.add_argument('--D', type=float, default=6, help='Number of domain walls')
+    parser.add_argument('--domain_pos', nargs='+', type=int, default=[[5,6],[9,10],[13,14]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--precision', type=str, default='double', help='Precision type')
 
@@ -93,23 +93,26 @@ def main():
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
+    set_backend("qibojit", platform="numba")
     set_precision('single')
     circ_d = model.get_D_circ()
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
     circ = model.get_full_circ()
-
-    circ_qiskit = model.circ_to_qiskit(circ)
-
-    circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='sabre',routing_method='sabre')
-
-    layout_final = []
-    for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
-        layout_final.append(q)
-    print(layout_final)
-
-    qasm_code = qasm2.dumps(circ_qiskit1)
-    circ = Circuit.from_qasm(qasm_code)
+    
+    # circ_qiskit = model.circ_to_qiskit(circ)
+    # circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='sabre',routing_method='sabre')
+    
+    # # if circ_qiskit1.layout is None:
+    # #     layout_final = None
+    # # else:
+    # layout_final = []
+    # for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
+    #     layout_final.append(q)
+    # print(layout_final)
+    
+    # qasm_code = qasm2.dumps(circ_qiskit1)
+    # circ = Circuit.from_qasm(qasm_code)
 
     print(circ.gate_types)
     print(circ.depth)

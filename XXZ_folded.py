@@ -294,6 +294,21 @@ class XXZ_folded_one_domain:
             circ.add(gates.TOFFOLI(1,4,6))
             circ.add(gates.TOFFOLI(2,3,4))
             circ.add(gates.X(2))
+        elif n == 'first':
+            circ = Circuit(9)
+            circ.add(gates.X(1))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.TOFFOLI(0,6,7))
+            circ.add(gates.X(3))
+            circ.add(gates.CNOT(3,5))
+            circ.add(gates.TOFFOLI(4,5,6))
+            circ.add(gates.TOFFOLI(4,5,6))
+            circ.add(gates.CNOT(3,5))
+            circ.add(gates.X(3))
+            circ.add(gates.TOFFOLI(1,2,4))
+            circ.add(gates.X(1))           
+
+
         else:
             circ = Circuit(10)
             circ.add(gates.X(2))
@@ -370,11 +385,11 @@ class XXZ_folded_one_domain:
         for j in range(0, self.N - self.D):
             index_p.append(k)
             k += 2
-        
-        circ_d.add(gates.X(index_p[1])) # ADD MAGNON #
-        #for n in reversed(range(len(index_p))):
-        for n in [1]:  
-            if n >= 2:
+        #circ_d.add(gates.X(index_p[2]))
+        #circ_d.add(gates.X(index_p[5])) # ADD MAGNON #
+        for n in reversed(range(len(index_p))):
+        #for n in [1]:  
+            if n >= 1:
                 #MOVE DOMAIN BEFORE
                 circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2]]))
                 for qq in range(n-1):
@@ -423,10 +438,29 @@ class XXZ_folded_one_domain:
                 circ_d.add(gates.TOFFOLI(r_c[0], r_c[i+2], index_domain[index_domain.index(ii)+1]))
                 circ_d.add(gates.X(r_c[0]))
 
-            # RESET
-            #   #RESET Rr 1
+            # # # RESET
 
-            if n>= 2:
+            #   RESET R_aux_n, second qubit Rc
+            if n==0:
+                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
+            else:
+                circ_d.add(gates.X(index_domain[n-1]))
+                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
+            circ_d.add(gates.X(index_domain[n+1]))
+            circ_d.add(gates.TOFFOLI(index_domain[n+1], r_0[0], index_p[n]))
+            circ_d.add(gates.X(index_domain[n+1]))
+            if n==0:
+                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
+            else:
+                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
+                circ_d.add(gates.X(index_domain[n-1]))
+            for ii in r_c[2::]:
+                circ_d.add(gates.CNOT(ii, index_p[n]))
+                circ_d.add(gates.CNOT(ii, r_c[1]))
+
+            # # #   #RESET Rr 1
+
+            if n>= 1:
 
                 end = n - 1 + 1
                 start = 0
@@ -435,7 +469,7 @@ class XXZ_folded_one_domain:
                 rest = int(end - step*num_scans)
                 print(end,num_scans,rest)
                 #if rest == 1:
-                if rest > 1:
+                if rest > 0:
                     if num_scans == 0:
                         end_rest = end
                     else:
@@ -464,38 +498,20 @@ class XXZ_folded_one_domain:
                         q_r = r_r + phys_q + [r_0[0]]
                         circ_d.add(self.p_scan_w(num_scan=step+1).on_qubits(*q_r))
 
-            #   RESET R_aux_n, second qubit Rc
-            if n==0:
-                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
-            else:
-                circ_d.add(gates.X(index_domain[n-1]))
-                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
-            circ_d.add(gates.X(index_domain[n+1]))
-            circ_d.add(gates.TOFFOLI(index_domain[n+1], r_0[0], index_p[n]))
-            circ_d.add(gates.X(index_domain[n+1]))
-            if n==0:
-                circ_d.add(gates.CNOT(index_domain[n], r_0[0]))
-            else:
-                circ_d.add(gates.TOFFOLI(index_domain[n-1], index_domain[n], r_0[0]))
-                circ_d.add(gates.X(index_domain[n-1]))
-            for ii in r_c[2::]:
-                circ_d.add(gates.CNOT(ii, index_p[n]))
-                circ_d.add(gates.CNOT(ii, r_c[1]))
 
-
-              #RESET Rc
-            if n>= 2:
+            # #   #RESET Rc
+            if n>= 1:
                 num_scan = 3
-                if self.D > 2:
-                    if n == len(index_p)-1:
-                        circ_d.add(self.reset0_w(n='last').on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], r_0[0], r_0[1], r_c[0], r_c[2]]))
-                    else:      
-                        circ_d.add(self.reset0_w(n=None).on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], index_domain[n+3], r_0[0], r_0[1], r_c[0], r_c[2]]))
-                    q_r = r_r + [index_domain[n-1],index_domain[n], index_domain[n+1], r_0[0]]
-                    circ_d.add(self.p_scan_w(num_scan).on_qubits(*q_r))
+                # if self.D > 2:
+                #     if n == len(index_p)-1:
+                #         circ_d.add(self.reset0_w(n='last').on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], r_0[0], r_0[1], r_c[0], r_c[2]]))
+                #     else:      
+                #         circ_d.add(self.reset0_w(n=None).on_qubits(*[index_domain[n],index_domain[n+1], index_domain[n+2], index_domain[n+3], r_0[0], r_0[1], r_c[0], r_c[2]]))
+                #     q_r = r_r + [index_domain[n-1],index_domain[n], index_domain[n+1], r_0[0]]
+                #     circ_d.add(self.p_scan_w(num_scan).on_qubits(*q_r))
 
-                for index, qq in enumerate(range(n+4,n+self.D,2)):
-                    q_r = [r_r[index+2], index_domain[qq-2],index_domain[qq-1], index_domain[qq], index_domain[qq+1]] + r_0 + [index_p[n]] + [r_c[0], r_c[3+index]]
+                for index, qq in enumerate(range(n+2,n+self.D-1,2)):
+                    q_r = [r_r[index+1], index_domain[qq-2],index_domain[qq-1], index_domain[qq], index_domain[qq+1]] + r_0 + [index_p[n]] + [r_c[0], r_c[2+index]]
                     circ_d.add(self.reset_w().on_qubits(*q_r))
                     q_r = r_r + [index_domain[qq-3],index_domain[qq-2], index_domain[qq-1], r_0[0]]
                     circ_d.add(self.p_scan_w(num_scan).on_qubits(*q_r))
@@ -510,15 +526,11 @@ class XXZ_folded_one_domain:
                     circ_d.add(self.reset_w().on_qubits(*q_r))
 
 
-            #   #RESET Rr 2
+            # # # #   #RESET Rr 2
 
 
 
-            if n>= 2:
-                print('a',n+self.D-4)
-
-
-            if n>= 2:
+            if n>= 1:
 
                 end = n + self.D - 3 +1
                 start = 0
@@ -544,7 +556,7 @@ class XXZ_folded_one_domain:
                         q_r = r_r + phys_q + [r_0[0]]
                         circ_d.add(self.ip_scan_w(num_scan=step+1).on_qubits(*q_r))
 
-                if rest > 1:
+                if rest > 0:
                     if num_scans == 0:
                         end_rest = end
                     else:
@@ -859,17 +871,15 @@ class XXZ_folded_one_domain:
             nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[3]))
         circ_d.add(gates.X(index_domain[1]))
         circ_d.add(gates.X(index_domain[3]))
-        circ_d.add(gates.X(nqubits-3).controlled_by(
-            index_domain[1], index_domain[2], index_domain[4]))
-        circ_d.add(gates.X(nqubits-1).controlled_by(
-            index_domain[1], index_domain[2], index_domain[4]))
-        circ_d.add(gates.X(index_domain[2]))
+
         circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[4]))
+            nqubits-3).controlled_by(index_domain[1], index_domain[4]))
         circ_d.add(gates.X(
-            nqubits-1).controlled_by(index_domain[1], index_domain[2], index_domain[4]))
-        circ_d.add(gates.X(index_domain[2]))
-        
+            nqubits-1).controlled_by(index_domain[1], index_domain[4]))
+
+
+
+      
         # circ_d.add(gates.X(index_domain[3]))
         # circ_d.add(gates.X(index_domain[1]))
         # circ_d.add(gates.X(
