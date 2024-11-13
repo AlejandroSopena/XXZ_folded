@@ -133,10 +133,10 @@ class XXZ_folded_one_domain:
     def move_before(self, m):
         if m==1:
             circ = Circuit(10)
-            circ.add(gates.CNOT(0,4))
-            circ.add(gates.X(0))
-            circ.add(gates.TOFFOLI(0,1,4))
-            circ.add(gates.X(0))
+            circ.add(gates.CNOT(1,4))
+            # circ.add(gates.X(0))
+            # circ.add(gates.TOFFOLI(0,1,4))
+            # circ.add(gates.X(0))
             circ.add(gates.X(1))
             circ.add(gates.TOFFOLI(1,2,4))
             circ.add(gates.X(1))
@@ -813,6 +813,237 @@ class XXZ_folded_one_domain:
 
         return circ_d
 
+    # def get_D_circ_N6_M1(self):
+    #     aux = 3
+    #     nqubits_d = 2*self.N - self.D
+    #     circ_d = Circuit(nqubits_d+aux)
+    #     nqubits = circ_d.nqubits
+
+    #     index_domain = []
+
+    #     i = 1
+    #     for j in self.domain_pos[0]:
+    #         if j <= self.N - self.D:
+    #             index_domain.append(2*j-1)
+    #         else:
+    #             index_domain.append(2*(self.N-self.D)-1+i)
+    #             i += 1
+
+    #     circ_d.add([gates.X(index) for index in index_domain])  # define domain
+
+    #     index_p = []
+    #     k = 0
+    #     for j in range(0, self.N - self.D):
+    #         index_p.append(k)
+    #         k += 2
+
+    #     index_domain = []
+    #     k = 1
+    #     for j in range(0, self.N - self.D):
+    #         index_domain.append(k)
+    #         k += 2
+    #     k -= 1
+    #     for j in range(self.N - self.D, self.N):
+    #         index_domain.append(k)
+    #         k += 1
+
+    #     #circ_d.add(gates.X(index_p[1])) # ADD MAGNON
+
+    #     circ_d.add(gates.SWAP(index_p[3], nqubits-3))
+
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
+    #     circ_d.add(gates.CNOT(index_domain[0], nqubits-2))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[0]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[0], index_domain[1], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[0]))
+    #     circ_d.add(gates.X(index_domain[3]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[3], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[3]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[1]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[1], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[1]))
+
+    #     circ_d.add(gates.X(index_domain[4]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[4], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[4]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[5]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[4], index_domain[5], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[5]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[3]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[3]))
+
+    #     circ_d.add(gates.X(index_domain[3]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
+    #     circ_d.add(gates.CNOT(nqubits-1, index_domain[4]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[5]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[3]))
+
+    #     circ_d.add(gates.X(index_domain[4]))
+    #     circ_d.add(gates.X(
+    #         nqubits-3).controlled_by(index_domain[4], index_domain[5]))
+    #     circ_d.add(gates.X(
+    #         nqubits-1).controlled_by(index_domain[4], index_domain[5]))
+    #     circ_d.add(gates.X(index_domain[4]))
+
+    #     circ_d.add(gates.SWAP(index_p[2], nqubits-3))
+
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
+    #     #circ_d.add(gates.CNOT(index_domain[0],nqubits-2))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[0], nqubits-3)) #NEW
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[0]))
+    #     circ_d.add( #NEW
+    #         gates.X(nqubits-2).controlled_by(index_domain[0], index_domain[1], nqubits-3)) #NEW
+    #     circ_d.add(gates.X(index_domain[0]))
+
+    #     circ_d.add(gates.X(index_domain[4]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[4], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[4]))
+    #     circ_d.add(gates.CNOT(nqubits-3, index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-1, index_domain[3]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
+    #     # circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+    #     # circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+    #     # circ_d.add(gates.X(index_domain[2]))
+    #     # circ_d.add(
+    #     #     gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
+        
+    #     # circ_d.add(
+    #     #     gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
+    #     # circ_d.add(gates.X(index_domain[2]))
+    #     # circ_d.add(gates.CNOT(nqubits-3, index_domain[2]))
+    #     # circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
+    #     # circ_d.add(gates.CNOT(nqubits-1, index_domain[3]))
+    #     # circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+    #     # circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
+    #     circ_d.add(gates.X(index_domain[2]))
+
+
+    #     circ_d.add(gates.X(index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[1]))
+    #     circ_d.add(gates.X(
+    #         nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[1]))
+    #     circ_d.add(gates.X(index_domain[3]))
+
+    #     circ_d.add(gates.X(
+    #         nqubits-3).controlled_by(index_domain[1], index_domain[4]))
+    #     circ_d.add(gates.X(
+    #         nqubits-1).controlled_by(index_domain[1], index_domain[4]))
+
+
+
+      
+    #     # circ_d.add(gates.X(index_domain[3]))
+    #     # circ_d.add(gates.X(index_domain[1]))
+    #     # circ_d.add(gates.X(
+    #     #     nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[3]))
+    #     # circ_d.add(gates.X(index_domain[3]))
+    #     # circ_d.add(gates.X(index_domain[1]))
+    #     # # circ_d.add(
+    #     # #     gates.X(nqubits-1).controlled_by(index_domain[1], index_domain[4]))
+    #     # # circ_d.add(
+    #     # #     gates.X(nqubits-3).controlled_by(index_domain[1], index_domain[4]))
+    #     # circ_d.add(gates.CNOT(index_domain[1], nqubits-1))
+    #     # circ_d.add(gates.CNOT(index_domain[1], nqubits-3)) #HERE FAIL
+
+
+
+
+    #     circ_d.add(gates.SWAP(index_p[1], nqubits-3))
+
+    #     circ_d.add(
+    #         gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
+    #     circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
+    #     circ_d.add(
+    #         gates.X(nqubits-2).controlled_by(index_domain[0], nqubits-3))
+
+    #     circ_d.add(gates.CNOT(nqubits-3, index_domain[1]))
+    #     circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
+    #     circ_d.add(gates.CNOT(nqubits-1, index_domain[1]))
+
+    #     circ_d.add(gates.X(index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[0]))
+    #     circ_d.add(gates.X(
+    #         nqubits-3).controlled_by(index_domain[0], index_domain[1], index_domain[2]))
+    #     circ_d.add(gates.X(index_domain[0]))
+    #     circ_d.add(gates.X(
+    #         nqubits-3).controlled_by(index_domain[0], index_domain[2], index_domain[3]))
+    #     circ_d.add(gates.X(
+    #         nqubits-1).controlled_by(index_domain[0], index_domain[2], index_domain[3]))
+    #     circ_d.add(gates.X(index_domain[2]))
+
+    #     circ_d.add(gates.SWAP(index_p[0], nqubits-3))
+
+    #     circ_d.add(gates.CNOT(nqubits-3, index_domain[0]))
+
+    #     circ_d.add(gates.X(index_domain[1]))
+    #     circ_d.add(
+    #         gates.X(nqubits-3).controlled_by(index_domain[0], index_domain[1]))
+    #     circ_d.add(gates.X(index_domain[1]))
+
+    #     self.circ_d = circ_d
+
+    #     return circ_d
+
     def get_D_circ_N6_M1(self):
         aux = 3
         nqubits_d = 2*self.N - self.D
@@ -847,203 +1078,166 @@ class XXZ_folded_one_domain:
             index_domain.append(k)
             k += 1
 
-        #circ_d.add(gates.X(index_p[1])) # ADD MAGNON
+        #insert n=3
 
-        circ_d.add(gates.SWAP(index_p[3], nqubits-3))
-
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
-        circ_d.add(gates.CNOT(index_domain[0], nqubits-2))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_p[3],nqubits-3))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[0]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
+        circ_d.add(gates.CNOT(index_domain[0],nqubits-3))
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[2], index_domain[3], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_domain[3],nqubits-1))
+        circ_d.add(gates.TOFFOLI(index_p[3],nqubits-1,nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_domain[3],nqubits-1))
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
         circ_d.add(gates.X(index_domain[0]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[0], index_domain[1], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],nqubits-1))
+        circ_d.add(gates.TOFFOLI(index_p[3],nqubits-1,nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],nqubits-1))
         circ_d.add(gates.X(index_domain[0]))
         circ_d.add(gates.X(index_domain[3]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[3], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[3],index_p[3],nqubits-3))
         circ_d.add(gates.X(index_domain[3]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
         circ_d.add(gates.X(index_domain[1]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[1], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_p[3],nqubits-3))
         circ_d.add(gates.X(index_domain[1]))
 
+        circ_d.add(gates.X(index_domain[4]))   
+        circ_d.add(gates.TOFFOLI(index_domain[4],index_p[3],nqubits-3))
         circ_d.add(gates.X(index_domain[4]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[4], nqubits-3))
-        circ_d.add(gates.X(index_domain[4]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[3]))
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_p[3],nqubits-3))
+        circ_d.add(gates.X(index_domain[2])) 
         circ_d.add(gates.X(index_domain[5]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[4], index_domain[5], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[4],index_domain[5],nqubits-1))
+        circ_d.add(gates.TOFFOLI(index_p[3],nqubits-1,nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[4],index_domain[5],nqubits-1))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[4]))
+        circ_d.add(gates.X(index_domain[3]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_domain[3],nqubits-3))
+        circ_d.add(gates.X(index_domain[3]))
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[5],nqubits-1))
         circ_d.add(gates.X(index_domain[5]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
-        circ_d.add(gates.X(index_domain[3]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3]))
-        circ_d.add(gates.X(index_domain[3]))
+
+        circ_d.add(gates.CNOT(nqubits-2,index_domain[4]))  
+        circ_d.add(gates.CNOT(nqubits-1,index_domain[4]))
+        circ_d.add(gates.CNOT(nqubits-1,index_domain[5]))
+
 
         circ_d.add(gates.X(index_domain[3]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
-        circ_d.add(gates.CNOT(nqubits-1, index_domain[4]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[5]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[3], nqubits-3))
-        circ_d.add(gates.X(index_domain[3]))
-
+        circ_d.add(gates.TOFFOLI(index_domain[3],index_p[3],nqubits-1))
+        circ_d.add(gates.X(index_domain[3]))   
+        circ_d.add(gates.CNOT(nqubits-2,index_p[3]))
         circ_d.add(gates.X(index_domain[4]))
-        circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[4], index_domain[5]))
-        circ_d.add(gates.X(
-            nqubits-1).controlled_by(index_domain[4], index_domain[5]))
-        circ_d.add(gates.X(index_domain[4]))
+        circ_d.add(gates.TOFFOLI(index_domain[4],index_domain[5],nqubits-2))
+        circ_d.add(gates.X(index_domain[4]))   
 
-        circ_d.add(gates.SWAP(index_p[2], nqubits-3))
+        # insert n=2
 
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
-        #circ_d.add(gates.CNOT(index_domain[0],nqubits-2))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[0], nqubits-3)) #NEW
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_p[2],nqubits-3))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[0]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_p[2],nqubits-3))
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[2], index_domain[3], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], index_domain[3], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_domain[3],index_p[3]))
+        circ_d.add(gates.TOFFOLI(index_p[2],index_p[3],nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_domain[3],index_p[3]))
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
         circ_d.add(gates.X(index_domain[0]))
-        circ_d.add( #NEW
-            gates.X(nqubits-2).controlled_by(index_domain[0], index_domain[1], nqubits-3)) #NEW
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],index_p[3]))
+        circ_d.add(gates.TOFFOLI(index_p[2],index_p[3],nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],index_p[3]))
         circ_d.add(gates.X(index_domain[0]))
-
+       
         circ_d.add(gates.X(index_domain[4]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[4], nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[4],index_p[2],nqubits-3))
         circ_d.add(gates.X(index_domain[4]))
-        circ_d.add(gates.CNOT(nqubits-3, index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-1, index_domain[3]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
-        # circ_d.add(gates.CNOT(nqubits-2, index_domain[2]))
-        # circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
-        # circ_d.add(gates.X(index_domain[2]))
-        # circ_d.add(
-        #     gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
-        
-        # circ_d.add(
-        #     gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
-        # circ_d.add(gates.X(index_domain[2]))
-        # circ_d.add(gates.CNOT(nqubits-3, index_domain[2]))
-        # circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
-        # circ_d.add(gates.CNOT(nqubits-1, index_domain[3]))
-        # circ_d.add(gates.CNOT(nqubits-2, index_domain[3]))
-        # circ_d.add(gates.CNOT(nqubits-2, index_domain[4]))
-        circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[1], index_domain[2], nqubits-3))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-1))
+        circ_d.add(gates.X(index_domain[2])) 
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[2],index_p[3]))
+        circ_d.add(gates.TOFFOLI(index_p[2],index_p[3],nqubits-3))
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[2],index_p[3]))
         circ_d.add(gates.X(index_domain[2]))
 
+        circ_d.add(gates.CNOT(index_p[2],index_domain[2]))  
+        circ_d.add(gates.CNOT(nqubits-2,index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-2,index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-1,index_domain[3]))
+        circ_d.add(gates.CNOT(nqubits-1,index_domain[4]))
 
+        circ_d.add(gates.X(index_domain[1]))  
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[2],nqubits-3))
         circ_d.add(gates.X(index_domain[3]))
+        circ_d.add(gates.TOFFOLI(index_domain[3],nqubits-3,index_p[2]))
+        circ_d.add(gates.X(index_domain[3]))
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[2],nqubits-3))
         circ_d.add(gates.X(index_domain[1]))
-        circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[3]))
-        circ_d.add(gates.X(index_domain[1]))
-        circ_d.add(gates.X(index_domain[3]))
-
-        circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[1], index_domain[4]))
-        circ_d.add(gates.X(
-            nqubits-1).controlled_by(index_domain[1], index_domain[4]))
-
-
-
-      
-        # circ_d.add(gates.X(index_domain[3]))
-        # circ_d.add(gates.X(index_domain[1]))
-        # circ_d.add(gates.X(
-        #     nqubits-3).controlled_by(index_domain[1], index_domain[2], index_domain[3]))
-        # circ_d.add(gates.X(index_domain[3]))
-        # circ_d.add(gates.X(index_domain[1]))
-        # # circ_d.add(
-        # #     gates.X(nqubits-1).controlled_by(index_domain[1], index_domain[4]))
-        # # circ_d.add(
-        # #     gates.X(nqubits-3).controlled_by(index_domain[1], index_domain[4]))
-        # circ_d.add(gates.CNOT(index_domain[1], nqubits-1))
-        # circ_d.add(gates.CNOT(index_domain[1], nqubits-3)) #HERE FAIL
-
-
-
-
-        circ_d.add(gates.SWAP(index_p[1], nqubits-3))
-
-        circ_d.add(
-            gates.X(nqubits-1).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[2], nqubits-3))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[0]))
-        circ_d.add(gates.CNOT(nqubits-2, index_domain[1]))
-        circ_d.add(
-            gates.X(nqubits-2).controlled_by(index_domain[0], nqubits-3))
-
-        circ_d.add(gates.CNOT(nqubits-3, index_domain[1]))
-        circ_d.add(gates.CNOT(nqubits-1, index_domain[2]))
-        circ_d.add(gates.CNOT(nqubits-1, index_domain[1]))
-
         circ_d.add(gates.X(index_domain[2]))
-        circ_d.add(gates.X(index_domain[0]))
-        circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[0], index_domain[1], index_domain[2]))
-        circ_d.add(gates.X(index_domain[0]))
-        circ_d.add(gates.X(
-            nqubits-3).controlled_by(index_domain[0], index_domain[2], index_domain[3]))
-        circ_d.add(gates.X(
-            nqubits-1).controlled_by(index_domain[0], index_domain[2], index_domain[3]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_p[2],nqubits-1))
         circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.CNOT(nqubits-2,index_p[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[1],index_domain[4],nqubits-2))
 
-        circ_d.add(gates.SWAP(index_p[0], nqubits-3))
+        # # insert n=1
 
-        circ_d.add(gates.CNOT(nqubits-3, index_domain[0]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],index_p[1],nqubits-3))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[0]))
+        circ_d.add(gates.CNOT(nqubits-3,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-3,nqubits-2))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_p[1],nqubits-3))
+
+        circ_d.add(gates.CNOT(index_p[1],index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-2,index_domain[1]))
+        circ_d.add(gates.CNOT(nqubits-2,index_domain[2]))
+
+        circ_d.add(gates.X(index_domain[0]))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],nqubits-3))
+        circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],nqubits-3,index_p[1]))
+        circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],nqubits-3))
+        circ_d.add(gates.X(index_domain[0]))
+        circ_d.add(gates.CNOT(nqubits-2,index_p[1]))  
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[3],nqubits-3))
+        circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[2],nqubits-3,nqubits-2))
+        circ_d.add(gates.X(index_domain[2]))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[3],nqubits-3))
+
+        # insert n=0
+
+        circ_d.add(gates.CNOT(index_p[0],index_domain[0]))
 
         circ_d.add(gates.X(index_domain[1]))
-        circ_d.add(
-            gates.X(nqubits-3).controlled_by(index_domain[0], index_domain[1]))
+        circ_d.add(gates.TOFFOLI(index_domain[0],index_domain[1],index_p[0]))
         circ_d.add(gates.X(index_domain[1]))
 
         self.circ_d = circ_d
 
-        return circ_d
+        # sym_state = circ_d().symbolic()
+        # sym_state = sym_state[7:-1]
+        # new_state = ''.join([sym_state[i] for i in index_domain])
+        # print(new_state)
+        # print('aux',''.join([sym_state[i] for i in [nqubits-3,nqubits-2,nqubits-1]]))
+        # print('r_magnon',''.join([sym_state[i] for i in index_p]))
 
+        return circ_d
+    
     def get_D_circ(self):
         if self.N == 5 and self.M == 1 and self.D == 2:
             return self.get_D_circ_N5_M1()
