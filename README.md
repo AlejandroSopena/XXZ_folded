@@ -16,16 +16,17 @@ This repository contains the code to reproduce the numerical implementations pre
 
 
 ## Usage
-[`XXZ_folded.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/XXZ_folded.py) contains a class to generate the `circuit` to prepare an eigenstate of the XXZ folded model with two domain walls, $N$ bulk sites and $M$ magnons.
+[`XXZ_folded.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/XXZ_folded.py) contains a class to generate the `circuit` to prepare an eigenstate of the XXZ folded model with $N$ bulk sites $M$ magnons and $D$ domain walls.
 For $N=5$ and $N=6$ with one magnon, the simplifications explained in the article are implemented.
 ```python
-from XXZ_folded import XXZ_folded_one_domain
+from XXZ_folded import XXZ_folded
 
-N = 6
+N = 7
+D = 2
 M = 1
-domain_pos = [4,5]
+domain_pos = [[5,6]]
 
-model = XXZ_folded_one_domain(N, M, domain_pos)
+model = XXZ_folded(N, M, D, domain_pos)
 model._get_roots()
 circ_xx, circ_xxb = model.get_xx_b_circuit()
 circ_u0 = model.get_U0_circ()
@@ -37,11 +38,12 @@ circuit = model.get_full_circ()
 
 [`run_simulation.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/run_simulation.py) performs the simulations explained in the paper for a given eigenstate. The simulation can be customized throught specific command-line arguments.
 ```python
-python run_simulation.py --path result --N 5 --M 1 --domain_pos 3 4 --connectivity google_sycamore --basis_gates cx rz sx x id --boundaries False --lamb 0.003 --n_training_samples 50 --precision single
+python run_simulation.py --path result --N 10 --M 1 --D 4 --domain_pos [[3,4],[7,8]] --connectivity google_sycamore --basis_gates cx rz sx x id --boundaries False --lamb 0.003 --n_training_samples 50 --precision single
 ```
 - `path`: path to save the data files with the expectaion values and the states.
 - `N`: number of bulk qubits.
 - `M`: number of magnons.
+- `D` : number of domain walls.
 - `domain_pos`: position of the domain walls.
 - `connectivity`: can be `google_sycamore` for $N=5$ and $N=6$. `None` otherwise.
 - `basis_gates`: single-qubit and two-qubit gates used to decompose the circuit.
