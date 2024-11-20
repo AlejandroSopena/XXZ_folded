@@ -50,7 +50,7 @@ def main():
     parser.add_argument('--N', type=int, default=5, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of magnons')
     parser.add_argument('--D', type=float, default=2, help='Number of domain walls')
-    parser.add_argument('--domain_pos', type=parse_nested_list, default=[[3,4]], help='Domain positions') # [[3,4],[7,8,9],[12,13]]
+    parser.add_argument('--domain_pos', type=parse_nested_list, default=[[3,4]], help='Domain positions')
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--precision', type=str, default='double', help='Precision type')
 
@@ -108,7 +108,8 @@ def main():
     circ = model.get_full_circ()
     
     circ_qiskit = model.circ_to_qiskit(circ)
-    circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='sabre',routing_method='sabre')
+    circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='trivial',routing_method='sabre')
+
     
     if circ_qiskit1.layout is None:
         layout_final = None
