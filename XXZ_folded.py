@@ -58,7 +58,7 @@ def partial_trace(rho, keep_indices):
     return result
 
 
-class XXZ_folded_one_domain:
+class XXZ_folded:
     """
     A class to build the circuits to prepare the eigenstates of the XXZ folded with two domain walls.
 
@@ -360,8 +360,6 @@ class XXZ_folded_one_domain:
         r_r = list(range(nqubits_d+aux-int(self.D/2)-1,nqubits_d+aux))
         #[phys,r0,rc,rr]
         circ_d = Circuit(nqubits_d+aux)
-        print(nqubits_d+aux)
-        print(aux)
         circ_d.add(gates.X(r_c[1]))
         circ_d.add(gates.X(r_r[0]))
         nqubits = circ_d.nqubits
@@ -467,14 +465,11 @@ class XXZ_folded_one_domain:
                 step = 4
                 num_scans = int((end-start)/step)
                 rest = int(end - step*num_scans)
-                print(end,num_scans,rest)
-                #if rest == 1:
                 if rest > 0:
                     if num_scans == 0:
                         end_rest = end
                     else:
                         end_rest = end-step*num_scans
-                    print([j for j in range(start,end_rest)])
                     phys_q = [index_domain[j] for j in range(start,end_rest)]
                     q_r = r_r + phys_q + [r_0[0]]                    
                     if phys_q[0] == index_domain[0]:
@@ -484,7 +479,6 @@ class XXZ_folded_one_domain:
                     circ_d.add(self.p_scan_w(num_scan=(end_rest-start),qubit_0=qubit_0).on_qubits(*q_r))
                 for i in range(num_scans):
                     if i == 0 and rest == 0:
-                        print([j for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         if phys_q[0] == index_domain[0]:
@@ -493,7 +487,6 @@ class XXZ_folded_one_domain:
                             qubit_0 = False
                         circ_d.add(self.p_scan_w(num_scan=step,qubit_0=qubit_0).on_qubits(*q_r))
                     else:
-                        print([j for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         circ_d.add(self.p_scan_w(num_scan=step+1).on_qubits(*q_r))
@@ -537,12 +530,9 @@ class XXZ_folded_one_domain:
                 step = 4
                 num_scans = int((end-start)/step)
                 rest = int(end - step*num_scans)
-                print(end,num_scans,rest)
-                #if rest == 1:
 
                 for i in reversed(range(num_scans)):
                     if i == 0 and rest == 0:
-                        print([j for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         if phys_q[0] == index_domain[0]:
@@ -551,7 +541,6 @@ class XXZ_folded_one_domain:
                             qubit_0 = False
                         circ_d.add(self.ip_scan_w(num_scan=step,qubit_0=qubit_0).on_qubits(*q_r))
                     else:
-                        print([j for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))])
                         phys_q = [index_domain[j] for j in range(end-step*num_scans-1+step*i,end-step*num_scans+step*(i+1))]
                         q_r = r_r + phys_q + [r_0[0]]
                         circ_d.add(self.ip_scan_w(num_scan=step+1).on_qubits(*q_r))
@@ -561,7 +550,6 @@ class XXZ_folded_one_domain:
                         end_rest = end
                     else:
                         end_rest = end-step*num_scans
-                    print([j for j in range(start,end_rest)])
                     phys_q = [index_domain[j] for j in range(start,end_rest)]
                     q_r = r_r + phys_q + [r_0[0]]
                     if phys_q[0] == index_domain[0]:
@@ -572,14 +560,14 @@ class XXZ_folded_one_domain:
 
 
         self.circ_d = circ_d
-        sym_state = circ_d().symbolic()
-        sym_state = sym_state[7:-1]
-        new_state = ''.join([sym_state[i] for i in index_domain])
-        print(new_state)
-        print('r_0',''.join([sym_state[i] for i in r_0]))
-        print('r_c',''.join([sym_state[i] for i in r_c]))
-        print('r_r',''.join([sym_state[i] for i in r_r]))
-        print('r_aux',''.join([sym_state[i] for i in index_p]))
+        # sym_state = circ_d().symbolic()
+        # sym_state = sym_state[7:-1]
+        # new_state = ''.join([sym_state[i] for i in index_domain])
+        # print(new_state)
+        # print('r_0',''.join([sym_state[i] for i in r_0]))
+        # print('r_c',''.join([sym_state[i] for i in r_c]))
+        # print('r_r',''.join([sym_state[i] for i in r_r]))
+        # print('r_aux',''.join([sym_state[i] for i in index_p]))
 
         return circ_d
 
@@ -1396,7 +1384,6 @@ class XXZ_folded_one_domain:
             ham_state = ham_state / np.trace(ham_state)
         else:
             ham_state = ham@state
-            #print(np.where(abs(ham_state)>1e-10))
             ham_state = ham_state / np.linalg.norm(ham_state)
         fid_ham = fidelity(ham_state, state)
 

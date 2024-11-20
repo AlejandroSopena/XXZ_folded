@@ -17,21 +17,7 @@ from qibo.backends import _check_backend_and_local_state, construct_backend
 from qibo.symbols import I
 from qibo.hamiltonians import SymbolicHamiltonian
 
-from XXZ_folded import XXZ_folded_one_domain
-
-def density_matrix_to_state_vector(rho):
-    # Check if the density matrix represents a pure state by verifying Tr(rho^2) = 1
-    if np.isclose(np.trace(rho @ rho), 1.0):
-        # Perform eigendecomposition to get the eigenvalues and eigenvectors
-        eigenvalues, eigenvectors = np.linalg.eigh(rho)
-        
-        # The pure state corresponds to the eigenvector with eigenvalue close to 1
-        pure_state_index = np.argmax(eigenvalues)
-        pure_state_vector = eigenvectors[:, pure_state_index]
-        
-        return pure_state_vector
-    else:
-        raise ValueError("The density matrix does not represent a pure state.")
+from XXZ_folded import XXZ_folded
     
 def main():
 
@@ -47,10 +33,10 @@ def main():
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=5, help='Number of qubits')
+    parser.add_argument('--N', type=int, default=7, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of magnons')
-    parser.add_argument('--D', type=float, default=2, help='Number of domain walls')
-    parser.add_argument('--domain_pos', type=parse_nested_list, default=[[3,4]], help='Domain positions')
+    parser.add_argument('--D', type=int, default=2, help='Number of domain walls')
+    parser.add_argument('--domain_pos', type=parse_nested_list, default=[[5,6]], help='Domain positions')
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--precision', type=str, default='double', help='Precision type')
 
@@ -96,12 +82,10 @@ def main():
     set_backend("qibojit", platform="numba")
     set_threads(20)
 
-    model = XXZ_folded_one_domain(N, M, D, domain_pos)
+    model = XXZ_folded(N, M, D, domain_pos)
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
-    set_backend("qibojit", platform="numba")
-    #set_precision('single')
     circ_d = model.get_D_circ()
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
@@ -134,11 +118,6 @@ def main():
     backend.set_precision(precision)
 
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final, backend=backend)
-    # s = cp.asnumpy(state_noiseless)
-    # s = density_matrix_to_state_vector(s)
-    # s = cp.array(s)
-    # print(np.where(abs(s)>1e-10))
-    #print(np.where(abs(np.linalg.eigvals(s))>1e-10))
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
