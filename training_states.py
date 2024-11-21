@@ -8,8 +8,8 @@ def _get_state(model, i, path, noise_model=None, boundaries=False, density_matri
     model.circ_full = circuit
     training_state = {}
     backend.set_precision('single')
-    state1 = model.get_state(noise_model=None, boundaries=boundaries, density_matrix=False, layout=layout, backend=backend)
-    state2 = model.get_state(noise_model=noise_model, boundaries=boundaries, density_matrix=density_matrix, layout=layout, backend=backend)
+    state1 = model.get_state(noise_model=None, boundaries=boundaries, density_matrix=False, layout=layout)
+    state2 = model.get_state(noise_model=noise_model, boundaries=boundaries, density_matrix=density_matrix, layout=layout)
 
     training_state['noiseless'] = state1
     training_state['noisy'] = state2
