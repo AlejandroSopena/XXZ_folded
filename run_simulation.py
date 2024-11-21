@@ -5,7 +5,6 @@ import time
 
 import argparse
 import numpy as np
-import cupy as cp
 from scipy.optimize import curve_fit
 from qiskit import transpile, qasm2
 
@@ -17,20 +16,30 @@ from qibo.backends import _check_backend_and_local_state, construct_backend
 from qibo.symbols import I
 from qibo.hamiltonians import SymbolicHamiltonian
 
-from XXZ_folded import XXZ_folded_one_domain
-
+from XXZ_folded import XXZ_folded
+    
 def main():
+
+    def parse_nested_list(s):
+        try:
+            return eval(s)
+        except:
+            raise argparse.ArgumentTypeError("Invalid format for nested list")
+    
     parser = argparse.ArgumentParser(description="Run simulation with specified parameters.")
     parser.add_argument('--basis_gates', nargs='+', default=['cx', 'rz', 'sx', 'x', 'id'], help='List of basis gates')
     parser.add_argument('--boundaries', type=bool, default=False, help='Boundaries flag')
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
-    parser.add_argument('--N', type=int, default=5, help='Number of qubits')
-    parser.add_argument('--M', type=int, default=1, help='Number of domain walls')
-    parser.add_argument('--domain_pos', nargs='+', type=int, default=[3, 4], help='Domain positions')
-    parser.add_argument('--connectivity', type=str, default='google_sycamore', help='Connectivity type')
-    parser.add_argument('--precision', type=str, default='single', help='Precision type')
+    parser.add_argument('--N', type=int, default=7, help='Number of qubits')
+    parser.add_argument('--M', type=int, default=1, help='Number of magnons')
+    parser.add_argument('--D', type=int, default=2, help='Number of domain walls')
+    parser.add_argument('--domain_pos', type=parse_nested_list, default=[[5,6]], help='Domain positions')
+    parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
+    parser.add_argument('--backend', type=str, default='numba', help='Calculation engine: numba or cupy')
+    parser.add_argument('--precision', type=str, default='double', help='Precision type: double or single')
+    parser.add_argument('--nthreads', type=int, default=8, help='Number of threads for numba')
 
     args = parser.parse_args()
 
@@ -41,9 +50,12 @@ def main():
     path = args.path
     N = args.N
     M = args.M
+    D = args.D
     domain_pos = args.domain_pos
     connectivity = args.connectivity
+    backend_name = args.backend
     precision = args.precision
+    nthreads = args.nthreads
 
     if lamb == 0:
         noise_model = None
@@ -54,7 +66,7 @@ def main():
 
     if connectivity == 'google_sycamore':
         if N == 5:
-            connectivity = np.load('connectivities/connectivity_google_sycamore_12.npy',allow_pickle=True).tolist()
+            connectivity = np.load('connectivities/connectivity_google_sycamore_11.npy',allow_pickle=True).tolist()
         elif N == 6:
             connectivity = np.load('connectivities/connectivity_google_sycamore_13.npy',allow_pickle=True).tolist()
         else:
@@ -70,10 +82,14 @@ def main():
     os.makedirs(path, exist_ok=True)
     os.makedirs(path+'/training_states', exist_ok=True)
 
-    set_backend("qibojit", platform="numba")
-    set_threads(15)
+    backend = construct_backend("qibojit",platform=backend_name)
+    backend.set_precision(precision)
+    backend.set_threads(nthreads)
 
-    model = XXZ_folded_one_domain(N, M, domain_pos)
+    if backend.platform == 'cupy':
+        import cupy as cp
+
+    model = XXZ_folded(N, M, D, domain_pos, backend)
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
@@ -81,32 +97,30 @@ def main():
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
     circ = model.get_full_circ()
-
+    
     circ_qiskit = model.circ_to_qiskit(circ)
+    circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='trivial',routing_method='sabre')
 
-    circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='sabre',routing_method='sabre')
-
-    layout_final = []
-    for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
-        layout_final.append(q)
-    print(layout_final)
-
+    
+    if circ_qiskit1.layout is None:
+        layout_final = None
+    else:
+        layout_final = []
+        for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
+            layout_final.append(q)
+        print('final layout', layout_final)
+    
     qasm_code = qasm2.dumps(circ_qiskit1)
     circ = Circuit.from_qasm(qasm_code)
 
-    print(circ.gate_types)
-    print(circ.depth)
-    print(circ.nqubits)
+    print('gate types', circ.gate_types)
+    print('depht', circ.depth)
+    print('nqubits', circ.nqubits)
+    print('\n')
 
     model.circ_full = circ
 
-    set_backend("qibojit",platform="cupy")
-    set_precision(precision)
-    backend = construct_backend("qibojit",platform="cupy")
-    backend.set_precision(precision)
-
-    state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final, backend=backend)
-
+    state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
@@ -116,20 +130,26 @@ def main():
         Q1_noiseless = float(Q1_noiseless.get())
         Q2_noiseless = float(Q2_noiseless.get())
         
+    fid_ham, fid_q1, fid_q2 = model.check_fidelity(state_noiseless, boundaries=boundaries)
+    print("  Fidelity Hamiltonian: ", fid_ham)
+    print("  Fidelity Q1: ", fid_q1)
+    print("  Fidelity Q2: ", fid_q2)
+
     print('Noiseless')
     print("  Energy: ", energy_noiseless)
     print("  Q1: ", Q1_noiseless)
     print("  Q2: ", Q2_noiseless)
-
+    
     start_time = time.time()
-    state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final, backend=backend)
+    state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final)
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Elapsed time: {elapsed_time} seconds")
 
-    cp.get_default_memory_pool().free_all_blocks()
+    if backend.platform == 'cupy':
+        cp.get_default_memory_pool().free_all_blocks()
 
-    fid = fidelity(state_noiseless, state_noise)
+    fid = fidelity(state_noiseless, state_noise, backend=backend)
 
     energy = model.get_energy(state_noise, boundaries=boundaries)
     q1_val = model.get_magnetization(state_noise, boundaries=boundaries)
@@ -146,7 +166,8 @@ def main():
     del state_noiseless
     del state_noise
 
-    cp.get_default_memory_pool().free_all_blocks()
+    if backend.platform == 'cupy':
+        cp.get_default_memory_pool().free_all_blocks()
 
     circ = model.circ_full
 
@@ -171,8 +192,8 @@ def main():
     noisy_state = states['noisy']
 
     hamiltonian = model.get_xxz_folded_hamiltonian(boundaries)
-    q1 = model.get_q1(boundaries) - (model.N/2)*SymbolicHamiltonian(I(model.N-1))
-    q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1))
+    q1 = model.get_q1(boundaries) - (model.N/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
+    q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
 
     def get_mit_value(observable, n_training_samples, noisy_state):
         train_val = {"noiseless": [], "noisy": []}
@@ -199,7 +220,7 @@ def main():
         optimal_params = curve_fit(
             f,
             train_val["noisy"],
-            train_val["noise-free"],
+            train_val["noiseless"],
             p0 = params,
         )[0]
 
