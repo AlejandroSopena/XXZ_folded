@@ -38,7 +38,7 @@ circuit = model.get_full_circ()
 
 [`run_simulation.py`](https://github.com/AlejandroSopena/XXZ_folded/blob/main/run_simulation.py) performs the simulations explained in the paper for a given eigenstate. The simulation can be customized throught specific command-line arguments.
 ```python
-python run_simulation.py --path result --N 10 --M 1 --D 4 --domain_pos [[3,4],[7,8]] --connectivity google_sycamore --basis_gates cx rz sx x id --boundaries False --lamb 0.003 --n_training_samples 50 --precision single
+python run_simulation.py --path result --N 10 --M 1 --D 4 --domain_pos [[3,4],[7,8]] --connectivity google_sycamore --basis_gates cx rz sx x id --boundaries False --lamb 0.003 --n_training_samples 50 --precision single --backend numba
 ```
 - `path`: path to save the data files with the expectaion values and the states.
 - `N`: number of bulk qubits.
@@ -50,7 +50,9 @@ python run_simulation.py --path result --N 10 --M 1 --D 4 --domain_pos [[3,4],[7
 - `boundaries`: if `True`, it extends the final state to $N+2$ qubits.
 - `lamb`: depolarizing parameter used for the noisy simulation.
 - `n_training_samples`: number of near Clifford circuits used in CDR.
-- `precision` `single`: enables `complex64` and `double` enables `complex128`.
+- `backend`: Calculation engine: `numba` or `cupy`.
+- `precision`: `single`: enables `complex64` and `double` enables `complex128`.
+- `nthreads`: Number of threads for `numba`.
 
 The structure of the output files is
 
