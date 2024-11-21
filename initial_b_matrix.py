@@ -249,7 +249,7 @@ def loss(params0, nlayers, nmagnons, u, backend):
     npars = len(params0)
     params = [(f(params0[i], params0[i+1], params0[i+2]), 0) for i in range(0,npars,3)]
     circ.set_parameters(params)
-    state = circ().state()
+    state = backend.execute_circuit(circ).state()
     infid = 1 - fidelity(u, state, backend=backend)
     return float(infid)
 
@@ -260,6 +260,7 @@ def print_fun(x, f, accepted):
 def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     if backend is None:
         backend = GlobalBackend()
+    backend.set_precision('double')
     model = XXZ_free_open_model(nqubits, nmagnons)
     model.get_roots(roots)
     model.get_indexes()
@@ -277,10 +278,11 @@ def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     c.add(c1.on_qubits(*reversed(range(2*nmagnons))))
     
     params0 = np.random.uniform(0,1,(len(c.queue)-nmagnons)*3)
-
+    print('Numerical optimization of the circuit to prepare the initial state')
     result = basinhopping(loss, params0, minimizer_kwargs={"args":(nlayers, nmagnons, u, backend), "method":"L-BFGS-B", 'tol':1e-11} ,disp=True, callback=print_fun)
     params_f = result.x
     npars = len(params_f)
     params = [(f(params_f[i], params_f[i+1], params_f[i+2]), 0) for i in range(0,npars,3)]
     c.set_parameters(params)
+    print('\n')
     return c, result, check, u1

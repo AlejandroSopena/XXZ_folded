@@ -5,7 +5,6 @@ from qibo.symbols import X, Y, Z
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.quantum_info import fidelity, partial_trace
 from qibo.backends import GlobalBackend, construct_backend
-import cupy as cp
 
 from initial_b_matrix import get_b_circuit
 from XX_model import XX_model
@@ -53,7 +52,6 @@ def partial_trace(rho, keep_indices):
 
     result = np.trace(rho, axis1=2, axis2=3)
     del rho
-    cp.get_default_memory_pool().free_all_blocks()
 
     return result
 
@@ -67,11 +65,15 @@ class XXZ_folded:
         M (int): The number of domain walls.
         domain_pos (list): The positions of the domain walls.
     """
-    def __init__(self, N=8, M=1, D=2, domain_pos=[[5, 6, 7]]):
+    def __init__(self, N=8, M=1, D=2, domain_pos=[[5, 6, 7]], backend=None):
         self.N = N
         self.M = M
         self.D = D
         self.domain_pos = domain_pos
+        if backend is None:
+            self.backend = GlobalBackend()
+        else:
+            self.backend = backend
 
     def _get_roots(self):
         roots = []
@@ -81,7 +83,7 @@ class XXZ_folded:
         self.roots = roots
 
     def get_b_circuit(self):
-        b_circuit = get_b_circuit(self.N-self.D-self.M+1, self.M, self.roots)
+        b_circuit = get_b_circuit(self.N-self.D-self.M+1, self.M, self.roots, self.backend)
 
         return b_circuit
 
@@ -1299,7 +1301,7 @@ class XXZ_folded:
             ham += -(1/8)*(1+Z(j+2))*(X(j)*X(j+1)+Y(j)*Y(j+1))
             j = self.N-3
             ham += -(1/8)*(1+Z(j))*(X(j+1)*X(j+2)+Y(j+1)*Y(j+2))
-        ham = SymbolicHamiltonian(ham)
+        ham = SymbolicHamiltonian(ham, backend=self.backend)
 
         return ham
 
@@ -1311,7 +1313,7 @@ class XXZ_folded:
         else:
             for j in range(0, self.N):
                 q1 += (1/2)*(1-Z(j))
-        q1 = SymbolicHamiltonian(q1)
+        q1 = SymbolicHamiltonian(q1, backend=self.backend)
 
         return q1
 
@@ -1327,20 +1329,18 @@ class XXZ_folded:
             q2 += (1/2)*(1-Z(0))
             q2 += (1/2)*(1-Z(self.N-1))
 
-        q2 = SymbolicHamiltonian(q2)
+        q2 = SymbolicHamiltonian(q2, backend=self.backend)
 
         return q2
 
-    def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None, backend=None):
-        if backend is None:
-            backend = GlobalBackend()
+    def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None):
 
         circ = self.circ_full
         if noise_model is not None:
             circ = noise_model.apply(circ)
         circ.density_matrix = density_matrix
         if state is None:
-            result = backend.execute_circuit(circ)  # circ()
+            result = self.backend.execute_circuit(circ)  # circ()
             state1 = result.state()
         else:
             state1 = state
@@ -1385,7 +1385,7 @@ class XXZ_folded:
         else:
             ham_state = ham@state
             ham_state = ham_state / np.linalg.norm(ham_state)
-        fid_ham = fidelity(ham_state, state)
+        fid_ham = fidelity(ham_state, state, backend=self.backend)
 
         if dm:
             q1_state = q1@state@q1.conjugate().transpose()
@@ -1393,7 +1393,7 @@ class XXZ_folded:
         else:
             q1_state = q1@state
             q1_state = q1_state / np.linalg.norm(q1_state)
-        fid_q1 = fidelity(q1_state, state)
+        fid_q1 = fidelity(q1_state, state, backend=self.backend)
 
         if dm:
             q2_state = q2@state@q2.conjugate().transpose()
@@ -1401,7 +1401,7 @@ class XXZ_folded:
         else:
             q2_state = q2@state
             q2_state = q2_state / np.linalg.norm(q2_state)
-        fid_q2 = fidelity(q2_state, state)
+        fid_q2 = fidelity(q2_state, state, backend=self.backend)
 
         return fid_ham, fid_q1, fid_q2
 

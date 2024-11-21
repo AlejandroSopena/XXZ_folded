@@ -5,7 +5,6 @@ import time
 
 import argparse
 import numpy as np
-import cupy as cp
 from scipy.optimize import curve_fit
 from qiskit import transpile, qasm2
 
@@ -38,7 +37,9 @@ def main():
     parser.add_argument('--D', type=int, default=2, help='Number of domain walls')
     parser.add_argument('--domain_pos', type=parse_nested_list, default=[[5,6]], help='Domain positions')
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
-    parser.add_argument('--precision', type=str, default='double', help='Precision type')
+    parser.add_argument('--backend', type=str, default='numba', help='Calculation engine: numba or cupy')
+    parser.add_argument('--precision', type=str, default='double', help='Precision type: double or single')
+    parser.add_argument('--nthreads', type=int, default=8, help='Number of threads for numba')
 
     args = parser.parse_args()
 
@@ -52,7 +53,9 @@ def main():
     D = args.D
     domain_pos = args.domain_pos
     connectivity = args.connectivity
+    backend_name = args.backend
     precision = args.precision
+    nthreads = args.nthreads
 
     if lamb == 0:
         noise_model = None
@@ -79,10 +82,14 @@ def main():
     os.makedirs(path, exist_ok=True)
     os.makedirs(path+'/training_states', exist_ok=True)
 
-    set_backend("qibojit", platform="numba")
-    set_threads(20)
+    backend = construct_backend("qibojit",platform=backend_name)
+    backend.set_precision(precision)
+    backend.set_threads(nthreads)
 
-    model = XXZ_folded(N, M, D, domain_pos)
+    if backend.platform == 'cupy':
+        import cupy as cp
+
+    model = XXZ_folded(N, M, D, domain_pos, backend)
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
@@ -101,23 +108,19 @@ def main():
         layout_final = []
         for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
             layout_final.append(q)
-        print(layout_final)
+        print('final layout', layout_final)
     
     qasm_code = qasm2.dumps(circ_qiskit1)
     circ = Circuit.from_qasm(qasm_code)
 
-    print(circ.gate_types)
-    print(circ.depth)
-    print(circ.nqubits)
+    print('gate types', circ.gate_types)
+    print('depht', circ.depth)
+    print('nqubits', circ.nqubits)
+    print('\n')
 
     model.circ_full = circ
 
-    set_backend("qibojit",platform="cupy")
-    set_precision(precision)
-    backend = construct_backend("qibojit",platform="cupy")
-    backend.set_precision(precision)
-
-    state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final, backend=backend)
+    state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
@@ -136,16 +139,17 @@ def main():
     print("  Energy: ", energy_noiseless)
     print("  Q1: ", Q1_noiseless)
     print("  Q2: ", Q2_noiseless)
-
+    
     start_time = time.time()
-    state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final, backend=backend)
+    state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final)
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Elapsed time: {elapsed_time} seconds")
 
-    cp.get_default_memory_pool().free_all_blocks()
+    if backend.platform == 'cupy':
+        cp.get_default_memory_pool().free_all_blocks()
 
-    fid = fidelity(state_noiseless, state_noise)
+    fid = fidelity(state_noiseless, state_noise, backend=backend)
 
     energy = model.get_energy(state_noise, boundaries=boundaries)
     q1_val = model.get_magnetization(state_noise, boundaries=boundaries)
@@ -162,7 +166,8 @@ def main():
     del state_noiseless
     del state_noise
 
-    cp.get_default_memory_pool().free_all_blocks()
+    if backend.platform == 'cupy':
+        cp.get_default_memory_pool().free_all_blocks()
 
     circ = model.circ_full
 
@@ -187,8 +192,8 @@ def main():
     noisy_state = states['noisy']
 
     hamiltonian = model.get_xxz_folded_hamiltonian(boundaries)
-    q1 = model.get_q1(boundaries) - (model.N/2)*SymbolicHamiltonian(I(model.N-1))
-    q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1))
+    q1 = model.get_q1(boundaries) - (model.N/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
+    q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
 
     def get_mit_value(observable, n_training_samples, noisy_state):
         train_val = {"noiseless": [], "noisy": []}
