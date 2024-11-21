@@ -1350,8 +1350,8 @@ class XXZ_folded:
                 keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
                     self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
             else:
-                keep = [self.circ_full.nqubits-2-(int(self.D/2) + 1 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                    self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 1 + int(self.D/2) + 1)]
+                keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                    self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
         else:
             if self.M == 1:
                 keep = [2*j+1 for j in range(self.N-self.D)] + \
