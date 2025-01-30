@@ -71,6 +71,8 @@ def main():
             connectivity = np.load('connectivities/connectivity_google_sycamore_13.npy',allow_pickle=True).tolist()
         else:
             connectivity = None
+    else:
+        connectivity = None
 
     coupling_map = connectivity
 
