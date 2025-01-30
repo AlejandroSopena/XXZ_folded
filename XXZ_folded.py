@@ -4,7 +4,7 @@ from qibo import gates, Circuit
 from qibo.symbols import X, Y, Z
 from qibo.hamiltonians import SymbolicHamiltonian
 from qibo.quantum_info import fidelity, partial_trace
-from qibo.backends import GlobalBackend, construct_backend
+from qibo.backends import _check_backend, construct_backend
 
 from initial_b_matrix import get_b_circuit
 from XX_model import XX_model
@@ -70,10 +70,7 @@ class XXZ_folded:
         self.M = M
         self.D = D
         self.domain_pos = domain_pos
-        if backend is None:
-            self.backend = GlobalBackend()
-        else:
-            self.backend = backend
+        self.backend = _check_backend(backend)
 
     def _get_roots(self):
         roots = []
@@ -1548,8 +1545,7 @@ class XXZ_folded:
             circ_y.add(gates.H(q))
         circ_y.add(gates.M(*keep))
 
-        if backend is None:
-            backend = GlobalBackend()
+        backend = _check_backend(backend)
 
         result_z = backend.execute_circuit(circ_z, nshots=nshots)
         counts_z = result_z.frequencies()
@@ -1587,8 +1583,7 @@ class XXZ_folded:
         if noise_model is not None:
             circ = noise_model.apply(circ)
 
-        if backend is None:
-            backend = GlobalBackend()
+        backend = _check_backend(backend)
 
         xx_yy = 0
         if boundaries:

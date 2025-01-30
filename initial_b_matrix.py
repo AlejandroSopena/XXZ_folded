@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import basinhopping
 
 from qibo import gates
-from qibo.backends import GlobalBackend
+from qibo.backends import _check_backend
 from qibo.models import Circuit
 from qibo.quantum_info import fidelity
 
@@ -258,8 +258,7 @@ def print_fun(x, f, accepted):
         return True
 
 def get_b_circuit(nqubits, nmagnons, roots, backend=None):
-    if backend is None:
-        backend = GlobalBackend()
+    backend = _check_backend(backend)
     backend.set_precision('double')
     model = XXZ_free_open_model(nqubits, nmagnons)
     model.get_roots(roots)

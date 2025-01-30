@@ -6,13 +6,13 @@ This repository contains the code to reproduce the numerical implementations pre
 
 ## Dependences
 
-- `Python>=3.11.8`
+- `Python>=3.12.8`
 
-- `qibo==0.2.12`
+- `qibo==0.2.15`
 
-- `qibojit==0.1.6`
+- `qibojit==0.1.7`
 
-- `qiskit==1.2.0`
+- `qiskit==1.3.2`
 
 
 ## Usage

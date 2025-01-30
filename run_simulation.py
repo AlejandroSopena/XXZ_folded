@@ -175,6 +175,7 @@ def main():
     backend = None
     backend, local_state = _check_backend_and_local_state(seed, backend)
 
+    model.backend = backend
     training_circuits = [
         sample_training_circuit_cdr(circ, seed=local_state, backend=backend)
         for _ in range(n_training_samples)
@@ -192,8 +193,10 @@ def main():
     noisy_state = states['noisy']
 
     hamiltonian = model.get_xxz_folded_hamiltonian(boundaries)
-    q1 = model.get_q1(boundaries) - (model.N/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
-    q2 = model.get_q2(boundaries) - ((model.N+1)/2)*SymbolicHamiltonian(I(model.N-1), backend=backend)
+    q1_0 = model.get_q1(boundaries)
+    q2_0 = model.get_q2(boundaries)
+    q1 = q1_0 - (model.N/2)*SymbolicHamiltonian(I(q1_0.nqubits-1), backend=backend)
+    q2 = q2_0 - ((model.N+1)/2)*SymbolicHamiltonian(I(q2_0.nqubits-1), backend=backend)
 
     def get_mit_value(observable, n_training_samples, noisy_state):
         train_val = {"noiseless": [], "noisy": []}
