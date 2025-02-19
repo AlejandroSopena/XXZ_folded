@@ -117,14 +117,22 @@ class XXZ_folded:
         aux_qubits1 = self.M + 1
         circ_u0 = Circuit(self.N-self.D + aux_qubits1)
         circ_u0.add(gates.X(self.N-self.D))
+        ii = 0
+        jj = 1
         for q in reversed(range(self.N-self.D-self.M+1)):
-            for j in range(self.M):
+
+            for j in range(self.M-1+ii,self.M):
                 circ_u0.add(gates.SWAP(self.N-self.D + aux_qubits1 - 2 - j,
                             self.N-self.D + aux_qubits1 - 1 - j).controlled_by(q))
-            for j in range(self.M-1):
+            if self.M-1+ii >= 1:
+                ii -= 1
+
+            for j in range(0, jj):#range(self.M-2+jj, self.M-1): #ii+1
                 if q < q+self.M-1-j:
                     circ_u0.add(gates.SWAP(q, q+self.M-1 -
                                 j).controlled_by(self.N-self.D+1+j))
+            if jj < self.M-1:
+                jj += 1
         self.circ_u0 = circ_u0
 
         return circ_u0    
@@ -1266,7 +1274,8 @@ class XXZ_folded:
             aux = 3
         else:
             aux = 2 + int(self.D/2) + 2 + int(self.D/2) + 1
-        circ_full = Circuit(2*self.N-self.D+aux+aux_qubits1)
+        final_aux = max(aux, aux_qubits1)
+        circ_full = Circuit(2*self.N-self.D+final_aux)
 
         index_p = []
         k = 0
@@ -1277,9 +1286,12 @@ class XXZ_folded:
         new_qubits_1 = index_p + \
             list(range(2*self.N-self.D, 2*self.N-self.D+aux_qubits1))
         new_qubits_2 = list(range(0, 2*self.N-self.D)) + list(range(2 *
-                                                                    self.N-self.D+aux_qubits1, 2*self.N-self.D+aux_qubits1+aux))
+                                                                    self.N-self.D, 2*self.N-self.D
+                                                                    +aux))
 
         circ_full.add(circ1.on_qubits(*new_qubits_1))
+        if aux_qubits1 > 0:
+            circ_full.add(gates.X(new_qubits_1[-1]))
         circ_full.add(self.circ_d.on_qubits(*new_qubits_2))
 
         self.circ_full = circ_full
@@ -1455,6 +1467,43 @@ class XXZ_folded:
                         len(control_qubits)), control_qubits+target_qubits)
                     
         return circ_qiskit
+    
+    def circ_to_quantinuum(self, circ):
+        from pytket.circuit import Circuit, OpType, QControlBox, Unitary2qBox, Unitary1qBox, Op
+
+        backend = construct_backend('numpy')
+        gate_list = circ.queue
+        circ_quantinuum = Circuit(circ.nqubits, self.N)
+        for g in gate_list:
+            control_qubits = g.control_qubits
+            target_qubits = g.target_qubits
+            if isinstance(g, gates.X) or isinstance(g, gates.SWAP) or isinstance(g, gates.TOFFOLI):
+                if isinstance(g, gates.X):
+                    g1 = OpType.X
+                elif isinstance(g, gates.SWAP):
+                    g1 = OpType.SWAP
+                elif isinstance(g, gates.TOFFOLI):
+                    g1 = OpType.X
+                if len(control_qubits) == 0:
+                    circ_quantinuum.add_gate(g1, target_qubits)
+                else:
+                    circ_quantinuum.add_gate(QControlBox(Op.create(g1),n_controls=len(control_qubits)), control_qubits+target_qubits)
+            elif isinstance(g, gates.CNOT):
+                circ_quantinuum.add_gate(OpType.CX, control_qubits+target_qubits)
+            elif isinstance(g, gates.CZ):
+                circ_quantinuum.add_gate(OpType.CZ, control_qubits+target_qubits)
+            elif isinstance(g, gates.Unitary) or isinstance(g, gates.GeneralizedfSim):
+                matrix = g.matrix(backend)
+                if len(target_qubits) == 1: 
+                    g1 = Unitary1qBox
+                else:
+                    g1 = Unitary2qBox
+                if len(control_qubits) == 0:
+                    circ_quantinuum.add_gate(g1(matrix), target_qubits)
+                else:
+                    circ_quantinuum.add_gate(QControlBox(g1(matrix),n_controls=len(control_qubits)), control_qubits+target_qubits)
+                    
+        return circ_quantinuum
 
     def sample_circuit_qiskit(self, device_backend, transpiler, shots, coupling_map, basis_gates, layout):
         from qiskit_aer import AerSimulator

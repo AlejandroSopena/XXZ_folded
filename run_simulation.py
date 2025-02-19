@@ -99,7 +99,16 @@ def main():
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
     circ = model.get_full_circ()
-    
+    print(circ.nqubits)
+    print(circ.depth)
+    # circ_quantinuum = model.circ_to_quantinuum(circ)
+    # print('test')
+
+    # from pytket.extensions.quantinuum import QuantinuumBackend
+    # backend_q = QuantinuumBackend('H2-1SC')
+    # circ_quantinuum = backend_q.get_compiled_circuit(circ_quantinuum, optimisation_level=3)
+#############################3
+    #print(circ_quantinuum.depth(), circ_quantinuum.n_1qb_gates(), circ_quantinuum.n_2qb_gates())
     circ_qiskit = model.circ_to_qiskit(circ)
     circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='trivial',routing_method='sabre')
 
@@ -121,8 +130,20 @@ def main():
     print('\n')
 
     model.circ_full = circ
-
+###################################
+    #layout_final = None 
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
+
+    # from pytket.extensions.qiskit import AerStateBackend
+    # aer_state_b = AerStateBackend()
+    # # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
+
+    # state_handle = aer_state_b.process_circuit(circ_quantinuum)
+    # statevector = aer_state_b.get_result(state_handle).get_state()
+
+    # circ.density_matrix = False
+    # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
+
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
