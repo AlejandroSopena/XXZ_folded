@@ -162,7 +162,9 @@ class XXZ_folded:
             circ.add(gates.TOFFOLI(2,3,4))
             circ.add(gates.X(3))           
         else:
-            circ = Circuit(9 + int(self.D/2+1))
+            if m > int(self.D/2):
+                m = int(self.D/2)
+            circ = Circuit(9 + m + 1)
             circ.add(gates.X(2))
             circ.add(gates.TOFFOLI(2,3,5))
             circ.add(gates.X(2))
@@ -170,7 +172,7 @@ class XXZ_folded:
             circ.add(gates.CNOT(6,1))
             circ.add(gates.CNOT(6,2))
             circ.add(gates.CNOT(6,8))
-            for i in reversed(range(1, int(self.D/2+1))):
+            for i in reversed(range(1, m+1)):
                 circ.add(gates.SWAP(9+i-1, 9+i).controlled_by(6))
             # for i in reversed(range(1, int(self.D/2)+1)):
             #     circ.add(gates.SWAP(9+int(self.D/2+1)+i-1, 9+int(self.D/2+1)+i).controlled_by(5)) 
@@ -397,9 +399,10 @@ class XXZ_folded:
             if n >= 1:
                 #MOVE DOMAIN BEFORE
                 circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2]]))
+                ii = 2
                 for qq in range(n-1):
-                    qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], index_p[n]] + r_c
-                    circ_d.add(self.move_before(2).on_qubits(*qubits))
+                    qubits = [index_domain[qq],index_domain[qq+1], index_domain[qq+2], index_domain[qq+3], index_domain[qq+4], r_0[0], r_0[1], index_p[n]] + r_c[0:ii+2]
+                    circ_d.add(self.move_before(ii).on_qubits(*qubits))
 
 
                 #MOVE DOMAIN AFTER

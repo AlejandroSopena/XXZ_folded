@@ -99,8 +99,8 @@ def main():
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
     circ = model.get_full_circ()
-    print(circ.nqubits)
-    print(circ.depth)
+    #print(circ.nqubits)
+    #print(circ.depth)
     # circ_quantinuum = model.circ_to_quantinuum(circ)
     # print('test')
 
