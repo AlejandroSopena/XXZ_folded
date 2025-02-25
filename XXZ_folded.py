@@ -398,6 +398,7 @@ class XXZ_folded:
         #for n in [1]:  
             if n >= 1:
                 #MOVE DOMAIN BEFORE
+
                 circ_d.add(self.move_before(1).on_qubits(*[index_domain[0],index_domain[1], index_domain[2], index_domain[3], r_0[0], r_0[1], index_p[n], r_c[0], r_c[1], r_c[2]]))
                 ii = 2
                 for qq in range(n-1):
@@ -1346,8 +1347,10 @@ class XXZ_folded:
         return q2
 
     def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None):
-
-        circ = self.circ_full
+        if self.D == 0:
+            circ = self.circ_Psi_M_0
+        else:
+            circ = self.circ_full
         if noise_model is not None:
             circ = noise_model.apply(circ)
         circ.density_matrix = density_matrix
@@ -1357,20 +1360,27 @@ class XXZ_folded:
         else:
             state1 = state
 
-        if boundaries:
-            if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
-                keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                    self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+        if self.D != 0:
+            if boundaries:
+                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+                else:
+                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
             else:
-                keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                    self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+                if self.M == 1:
+                    keep = [2*j+1 for j in range(self.N-self.D)] + \
+                        [2*(self.N-self.D)+i for i in range(self.D)]
+                else:
+                    keep = [2*j+1 for j in range(self.N-self.D)] + \
+                        [2*(self.N-self.D)+i for i in range(self.D)]
         else:
-            if self.M == 1:
-                keep = [2*j+1 for j in range(self.N-self.D)] + \
-                    [2*(self.N-self.D)+i for i in range(self.D)]
+            if boundaries:
+                raise ValueError(
+                    'Boundaries not implemented for D=0')
             else:
-                keep = [2*j+1 for j in range(self.N-self.D)] + \
-                    [2*(self.N-self.D)+i for i in range(self.D)]
+                keep = list(range(self.N))
 
         if layout is not None:
             keep = [layout[k] for k in keep]
