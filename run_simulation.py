@@ -95,10 +95,13 @@ def main():
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
-    circ_d = model.get_D_circ()
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
-    circ = model.get_full_circ()
+    if D == 0:
+        circ = circ_Psi_M_0
+    else:
+        circ_d = model.get_D_circ()
+        circ = model.get_full_circ()
     #print(circ.nqubits)
     #print(circ.depth)
     # circ_quantinuum = model.circ_to_quantinuum(circ)
@@ -109,6 +112,8 @@ def main():
     # circ_quantinuum = backend_q.get_compiled_circuit(circ_quantinuum, optimisation_level=3)
 #############################3
     #print(circ_quantinuum.depth(), circ_quantinuum.n_1qb_gates(), circ_quantinuum.n_2qb_gates())
+
+
     circ_qiskit = model.circ_to_qiskit(circ)
     circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='trivial',routing_method='sabre')
 
@@ -131,16 +136,17 @@ def main():
 
     model.circ_full = circ
 ###################################
-    #layout_final = None 
+    layout_final = None
+
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
 
+    # circ_quantinuum = model.circ_to_quantinuum(circ)
     # from pytket.extensions.qiskit import AerStateBackend
     # aer_state_b = AerStateBackend()
-    # # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
+    # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
 
     # state_handle = aer_state_b.process_circuit(circ_quantinuum)
     # statevector = aer_state_b.get_result(state_handle).get_state()
-
     # circ.density_matrix = False
     # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
 
@@ -162,6 +168,20 @@ def main():
     print("  Energy: ", energy_noiseless)
     print("  Q1: ", Q1_noiseless)
     print("  Q2: ", Q2_noiseless)
+
+
+    nshots = 10000
+    counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, backend=backend) 
+    q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
+    q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
+    # energy_sample = model.sample_energy(counts_x, counts_y, nshots, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
+
+    new_indices_list, counts_zxxz_list, counts_zyyz_list = counts_energy
+    energy_sample = model.sample_energy(counts_x, counts_y, new_indices_list, counts_zxxz_list, counts_zyyz_list, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
+
+    print("  Q1 sample: ", q1_sample)
+    print("  Q2 sample: ", q2_sample)
+    print("  Energy sample: ", energy_sample)
     
     start_time = time.time()
     state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final)
