@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run simulation with specified parameters.")
     parser.add_argument('--basis_gates', nargs='+', default=['cx', 'rz', 'sx', 'x', 'id'], help='List of basis gates')
     parser.add_argument('--boundaries', type=bool, default=False, help='Boundaries flag')
+    parser.add_argument('--error_detection', type=bool, default=False, help='Boundaries flag')
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
@@ -45,6 +46,7 @@ def main():
 
     basis_gates = args.basis_gates
     boundaries = args.boundaries
+    error_detection = args.error_detection
     lamb = args.lamb
     n_training_samples = args.n_training_samples
     path = args.path
@@ -97,11 +99,17 @@ def main():
     circ_u0 = model.get_U0_circ()
     circ_Psi_M_0 = model.get_Psi_M_0_circ()
 
-    if D == 0:
-        circ = circ_Psi_M_0
-    else:
+    # if D == 0:
+    #     circ = circ_Psi_M_0
+    # else:
+    #     circ_d = model.get_D_circ()
+    #     circ = model.get_full_circ()
+
+    if D != 0:
         circ_d = model.get_D_circ()
-        circ = model.get_full_circ()
+
+    circ = model.get_full_circ()
+    # print(circ().symbolic())
     #print(circ.nqubits)
     #print(circ.depth)
     # circ_quantinuum = model.circ_to_quantinuum(circ)
@@ -112,7 +120,6 @@ def main():
     # circ_quantinuum = backend_q.get_compiled_circuit(circ_quantinuum, optimisation_level=3)
 #############################3
     #print(circ_quantinuum.depth(), circ_quantinuum.n_1qb_gates(), circ_quantinuum.n_2qb_gates())
-
 
     circ_qiskit = model.circ_to_qiskit(circ)
     circ_qiskit1 = transpile(circ_qiskit,basis_gates=basis_gates,coupling_map=coupling_map,optimization_level=3,layout_method='trivial',routing_method='sabre')
@@ -137,7 +144,6 @@ def main():
     model.circ_full = circ
 ###################################
     layout_final = None
-
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
 
     # circ_quantinuum = model.circ_to_quantinuum(circ)
@@ -153,6 +159,8 @@ def main():
     energy_noiseless = model.get_energy(state_noiseless, boundaries=boundaries)
     Q1_noiseless = model.get_magnetization(state_noiseless, boundaries=boundaries)
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
+    E1_noiseless = model.get_ej_expectation(1, state_noiseless, boundaries=boundaries)
+    E2_noiseless = model.get_ej_expectation(2, state_noiseless, boundaries=boundaries)
 
     if backend.platform == 'cupy':
         energy_noiseless = float(energy_noiseless.get())
@@ -168,19 +176,25 @@ def main():
     print("  Energy: ", energy_noiseless)
     print("  Q1: ", Q1_noiseless)
     print("  Q2: ", Q2_noiseless)
+    print("  E1: ", E1_noiseless)
+    print("  E2: ", E2_noiseless)
 
+    nshots = 100
+    counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, error_detection=error_detection, backend=backend) 
 
-    nshots = 10000
-    counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, backend=backend) 
     q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
     q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
     # energy_sample = model.sample_energy(counts_x, counts_y, nshots, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
 
+    e1_sample = model.sample_ej(1, counts_z, boundaries=boundaries)
+    e2_sample = model.sample_ej(2, counts_z, boundaries=boundaries)
     new_indices_list, counts_zxxz_list, counts_zyyz_list = counts_energy
     energy_sample = model.sample_energy(counts_x, counts_y, new_indices_list, counts_zxxz_list, counts_zyyz_list, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
 
     print("  Q1 sample: ", q1_sample)
     print("  Q2 sample: ", q2_sample)
+    print("  E1 sample: ", e1_sample)
+    print("  E2 sample: ", e2_sample)
     print("  Energy sample: ", energy_sample)
     
     start_time = time.time()

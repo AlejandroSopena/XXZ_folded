@@ -1269,6 +1269,9 @@ class XXZ_folded:
 
         circ1 = self.circ_Psi_M_0
 
+        if self.D == 0:
+            return circ1
+
         # |Psi_{M,D}>
         aux = 4
         if self.N == 5 and self.M == 1 and self.D == 2:
@@ -1456,6 +1459,12 @@ class XXZ_folded:
         correlation = q2.expectation(state)
 
         return correlation
+    
+    def get_ej_expectation(self, j, state, boundaries):
+        ej = self.get_ej(j, boundaries)
+        ej_expectation = ej.expectation(state)
+
+        return ej_expectation
 
     def circ_to_qiskit(self, circ):
         from qiskit import QuantumCircuit
@@ -1632,7 +1641,8 @@ class XXZ_folded:
 
         return counts_x, counts_y, counts_z
     
-    def sample_circuit(self, nshots, noise_model, layout, boundaries=True, backend=None):
+    def sample_circuit(self, nshots, noise_model, layout, boundaries=True, backend=None, error_detection = False):
+        # error detection only works for D=0
         if self.D != 0:
             if boundaries:
                 if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
@@ -1654,27 +1664,38 @@ class XXZ_folded:
                     'Boundaries not implemented for D=0')
             else:
                 keep = list(range(self.N))
+                aux = list(range(self.N,self.N+self.M+1))
+                if error_detection:
+                    keep_aux = keep + aux
+                else:
+                    keep_aux = keep
+
 
         if layout is not None:
             keep = [layout[k] for k in keep]
+            aux = [layout[k] for k in aux]
+            if self.D == 0 and error_detection:
+                keep_aux = keep + aux
+            else:
+                keep_aux = keep
 
         circ = self.circ_full
         if noise_model is not None:
             circ = noise_model.apply(circ)
 
         circ_z = circ.copy()
-        circ_z.add(gates.M(*keep))
+        circ_z.add(gates.M(*keep_aux))
 
         circ_x = circ.copy()
         for q in keep:
             circ_x.add(gates.H(q))
-        circ_x.add(gates.M(*keep))
+        circ_x.add(gates.M(*keep_aux))
 
         circ_y = circ.copy()
         for q in keep:
             circ_y.add(gates.SDG(q))
             circ_y.add(gates.H(q))
-        circ_y.add(gates.M(*keep))
+        circ_y.add(gates.M(*keep_aux))
 
         backend = _check_backend(backend)
 
@@ -1686,6 +1707,12 @@ class XXZ_folded:
 
         result_y = backend.execute_circuit(circ_y, nshots=nshots)
         counts_y = result_y.frequencies()
+
+
+        if self.D == 0 and error_detection:
+            counts_x = self.postselect_counts(counts_x)
+            counts_y = self.postselect_counts(counts_y)
+            counts_z = self.postselect_counts(counts_z)
 
         # counts zxxz
         # counts zyyz
@@ -1730,8 +1757,8 @@ class XXZ_folded:
                     circ_zyyz.add(gates.SDG(q)) #measure y in zyyz instead of x
                     circ_zyyz.add(gates.H(q))
 
-            circ_zxxz.add(gates.M(*keep))
-            circ_zyyz.add(gates.M(*keep))
+            circ_zxxz.add(gates.M(*keep_aux))
+            circ_zyyz.add(gates.M(*keep_aux))
             circ_x_list.append(circ_zxxz)
             circ_y_list.append(circ_zyyz)
 
@@ -1746,17 +1773,30 @@ class XXZ_folded:
             result_zyyz = backend.execute_circuit(circ_zyyz, nshots=nshots)
             counts_zyyz = result_zyyz.frequencies()
 
+            if self.D == 0 and error_detection:
+                counts_zxxz = self.postselect_counts(counts_zxxz)
+                counts_zyyz = self.postselect_counts(counts_zyyz)
+
             counts_zxxz_list.append(counts_zxxz)
             counts_zyyz_list.append(counts_zyyz)
 
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
+    
+    def postselect_counts(self, counts):
+        # only for D=0
+        from collections import Counter
+        new_counts = Counter()
+        for key, value in counts.items():
+            if key[-1] == '1':
+                new_counts[key[0:self.N]] = value
+        return new_counts
     
     def create_repeated_string(self):
         pattern = "zxx"
         result = (pattern * ((self.N) // len(pattern) + 1))[:self.N]
         return result
 
-    def sample_circuit_quantinuum(self, device_backend, nshots, layout, boundaries=False): #it works without boundaries
+    def sample_circuit_quantinuum(self, device_backend, nshots, layout, boundaries=False,  error_detection = False): #it works without boundaries
         
         if self.D != 0:
             if boundaries:
@@ -1779,28 +1819,38 @@ class XXZ_folded:
                     'Boundaries not implemented for D=0')
             else:
                 keep = list(range(self.N))
+                aux = list(range(self.N,self.N+self.M+1))
+                if error_detection:
+                    keep_aux = keep + aux
+                else:
+                    keep_aux = keep
 
         if layout is not None:
             keep = [layout[k] for k in keep]
+            aux = [layout[k] for k in aux]
+            if self.D == 0 and error_detection:
+                keep_aux = keep + aux
+            else:
+                keep_aux = keep
 
         circ = self.circ_full
         circ = self.circ_to_quantinuum(circ)
 
         circ_z = circ.copy()
-        for j, q in enumerate(keep):
+        for j, q in enumerate(keep_aux):
             circ_z.Measure(q, j)
 
         circ_x = circ.copy()
         for q in keep:
             circ_x.H(q)
-        for j, q in enumerate(keep):
+        for j, q in enumerate(keep_aux):
             circ_x.Measure(q, j)
 
         circ_y = circ.copy()
         for q in keep:
             circ_y.Sdg(q)
             circ_y.H(q)
-        for j, q in enumerate(keep):
+        for j, q in enumerate(keep_aux):
             circ_y.Measure(q, j)
 
                 
@@ -1816,6 +1866,11 @@ class XXZ_folded:
 
         handle = device_backend.process_circuit(circ_y, n_shots=nshots)
         counts_y = device_backend.get_result(handle).get_counts()
+
+        if self.D == 0 and error_detection:
+            counts_x = self.postselect_counts(counts_x)
+            counts_y = self.postselect_counts(counts_y)
+            counts_z = self.postselect_counts(counts_z)
 
         # counts zxxz
         # counts zyyz
@@ -1854,12 +1909,12 @@ class XXZ_folded:
             circ_zxxz = circ.copy()
             circ_zyyz = circ.copy()
             for j, q in enumerate(keep):
-                if string[j] == 'x':
+                if string[j] != 'z':
                     circ_zxxz.H(q) #measure x in zxxz
 
                     circ_zyyz.Sdg(q) #measure y in zyyz instead of x
                     circ_zyyz.H(q)
-                else:
+            for j, q in enumerate(keep_aux):
                     circ_zxxz.Measure(q, j)
                     circ_zyyz.Measure(q, j)
             circ_x_list.append(circ_zxxz)
@@ -1877,6 +1932,10 @@ class XXZ_folded:
 
             handle = device_backend.process_circuit(circ_zyyz, n_shots=nshots)
             counts_zyyz = device_backend.get_result(handle).get_counts()
+
+            if self.D == 0 and error_detection:
+                counts_zxxz = self.postselect_counts(counts_zxxz)
+                counts_zyyz = self.postselect_counts(counts_zyyz)
 
             counts_zxxz.append(counts_zxxz)
             counts_zyyz.append(counts_zyyz)
