@@ -229,18 +229,73 @@ def ansatz(nlayers, nmagnons):
     i = 0
     j = 2*nmagnons-2+1
     for l in range(nlayers):
-        q=0
-        for _ in range(2*nmagnons-1):
-            if q >= i:
-                if i == 0:
-                    circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
-                elif q < j:
-                    circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+        if l == nlayers-1:
+            q = 0
+            for _ in range(2*nmagnons-1):
+                if q >= i:
+                    if i == 0:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                    elif q < j:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                q=q+1
+        else:
+            q = 0
+            for q in range(2*nmagnons-1):
+                circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))            
 
-            q=q+1
+                q=q+1
         i += 2
         j -= 1
     return circ
+
+def ansatz(nlayers, nmagnons):
+    circ = Circuit(2*nmagnons)
+    for l in range(2*nmagnons):
+        if l%2 != 0:
+            circ.add(gates.X(l))
+    i = 0
+    j = 2*nmagnons-2+1
+    for l in range(nlayers):
+        if l == nlayers-1 and l != 0:   
+            i += 2
+            j -= 1
+            q = 0
+            for _ in range(2*nmagnons-1):
+                if q >= i:
+                    if i == 0:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                    elif q < j:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                q=q+1
+        else:
+            q = 0
+            for q in range(2*nmagnons-1):
+                circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))            
+
+                q=q+1
+    return circ
+
+# def ansatz(nlayers, nmagnons):
+#     circ = Circuit(2*nmagnons)
+#     for l in range(2*nmagnons):
+#         if l%2 != 0:
+#             circ.add(gates.X(l))
+#     i = 0
+#     j = 2*nmagnons-2+1
+#     for l in range(nlayers):
+#         q=0
+#         for _ in range(2*nmagnons-1):
+#             if q >= i:
+#                 if i == 0:
+#                     circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+#                 elif q < j:
+#                     circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+
+#             q=q+1
+#         i += 2
+#         j -= 1
+#     return circ
+
 
 def loss(params0, nlayers, nmagnons, u, backend):
     circ1 = ansatz(nlayers, nmagnons)
@@ -275,7 +330,7 @@ def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     c1 = ansatz(nlayers, nmagnons)
     c = Circuit(2*nmagnons)
     c.add(c1.on_qubits(*reversed(range(2*nmagnons))))
-    
+    c1.draw()
     params0 = np.random.uniform(0,1,(len(c.queue)-nmagnons)*3)
     print('Numerical optimization of the circuit to prepare the initial state')
     result = basinhopping(loss, params0, minimizer_kwargs={"args":(nlayers, nmagnons, u, backend), "method":"L-BFGS-B", 'tol':1e-11} ,disp=True, callback=print_fun)

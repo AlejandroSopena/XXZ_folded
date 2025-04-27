@@ -65,17 +65,20 @@ class XXZ_folded:
         M (int): The number of domain walls.
         domain_pos (list): The positions of the domain walls.
     """
-    def __init__(self, N=8, M=1, D=2, domain_pos=[[5, 6, 7]], backend=None):
+    def __init__(self, N=8, M=1, D=2, momentum_ints=[], domain_pos=[[5, 6, 7]], backend=None):
         self.N = N
         self.M = M
         self.D = D
+        self.momentum_ints = momentum_ints
         self.domain_pos = domain_pos
         self.backend = _check_backend(backend)
 
     def _get_roots(self):
         roots = []
+        if self.momentum_ints == []:
+            self.momentum_ints = [i+1 for i in range(self.M)]
         for i in range(self.M):
-            p = (i+1)*np.pi/(self.N+2-self.M-self.D)
+            p = self.momentum_ints[i]*np.pi/(self.N+2-self.M-self.D)
             roots.append(p)
         self.roots = roots
 
@@ -1270,6 +1273,7 @@ class XXZ_folded:
         circ1 = self.circ_Psi_M_0
 
         if self.D == 0:
+            self.circ_full = circ1
             return circ1
 
         # |Psi_{M,D}>
@@ -1360,12 +1364,25 @@ class XXZ_folded:
         ej = SymbolicHamiltonian(ej, backend=self.backend)
 
         return ej
-
-    def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None):
-        if self.D == 0:
-            circ = self.circ_Psi_M_0
+    
+    def get_nonlocal_pauli(self, num, boundaries=True):
+        if boundaries:
+            insertion_index = np.ceil(np.linspace(0,self.N+1,num))
         else:
-            circ = self.circ_full
+            insertion_index = np.ceil(np.linspace(0,self.N-1,num))
+
+        obs = 1
+        for i in insertion_index:
+            obs *= Z(int(i))
+
+        obs = SymbolicHamiltonian(obs, backend=self.backend)
+
+        return obs
+    def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None):
+        # if self.D == 0:
+        #     circ = self.circ_Psi_M_0
+        # else:
+        circ = self.circ_full
         if noise_model is not None:
             circ = noise_model.apply(circ)
         circ.density_matrix = density_matrix
@@ -1465,6 +1482,12 @@ class XXZ_folded:
         ej_expectation = ej.expectation(state)
 
         return ej_expectation
+    
+    def get_nonlocal_pauli_expectation(self, num, state, boundaries):
+        obs = self.get_nonlocal_pauli(num, boundaries)
+        obs_expectation = obs.expectation(state)
+
+        return obs_expectation
 
     def circ_to_qiskit(self, circ):
         from qiskit import QuantumCircuit
@@ -1502,12 +1525,15 @@ class XXZ_folded:
                     
         return circ_qiskit
     
-    def circ_to_quantinuum(self, circ):
+    def circ_to_quantinuum(self, circ, error_detection=False):
         from pytket.circuit import Circuit, OpType, QControlBox, Unitary2qBox, Unitary1qBox, Op
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
-        circ_quantinuum = Circuit(circ.nqubits, self.N)
+        if error_detection:
+            circ_quantinuum = Circuit(circ.nqubits, circ.nqubits)
+        else:
+            circ_quantinuum = Circuit(circ.nqubits, self.N)
         for g in gate_list:
             control_qubits = g.control_qubits
             target_qubits = g.target_qubits
@@ -1680,22 +1706,29 @@ class XXZ_folded:
                 keep_aux = keep
 
         circ = self.circ_full
-        if noise_model is not None:
-            circ = noise_model.apply(circ)
 
         circ_z = circ.copy()
-        circ_z.add(gates.M(*keep_aux))
+        #circ_z.add(gates.M(*keep_aux))
+        circ_z.add([gates.M(q) for q in keep_aux])
 
         circ_x = circ.copy()
         for q in keep:
             circ_x.add(gates.H(q))
-        circ_x.add(gates.M(*keep_aux))
+        circ_x.add([gates.M(q) for q in keep_aux])
 
         circ_y = circ.copy()
         for q in keep:
             circ_y.add(gates.SDG(q))
             circ_y.add(gates.H(q))
-        circ_y.add(gates.M(*keep_aux))
+        circ_y.add([gates.M(q) for q in keep_aux])
+
+        if noise_model is not None:
+            circ_z = noise_model.apply(circ_z)
+            circ_z.density_matrix = True
+            circ_x = noise_model.apply(circ_x)
+            circ_x.density_matrix = True
+            circ_y = noise_model.apply(circ_y)
+            circ_y.density_matrix = True
 
         backend = _check_backend(backend)
 
@@ -1707,7 +1740,6 @@ class XXZ_folded:
 
         result_y = backend.execute_circuit(circ_y, nshots=nshots)
         counts_y = result_y.frequencies()
-
 
         if self.D == 0 and error_detection:
             counts_x = self.postselect_counts(counts_x)
@@ -1757,8 +1789,16 @@ class XXZ_folded:
                     circ_zyyz.add(gates.SDG(q)) #measure y in zyyz instead of x
                     circ_zyyz.add(gates.H(q))
 
-            circ_zxxz.add(gates.M(*keep_aux))
-            circ_zyyz.add(gates.M(*keep_aux))
+            #circ_zxxz.add(gates.M(*keep_aux))
+            circ_zxxz.add([gates.M(q) for q in keep_aux])
+            circ_zyyz.add([gates.M(q) for q in keep_aux])
+
+            if noise_model is not None:
+                circ_zxxz = noise_model.apply(circ_zxxz)
+                circ_zxxz.density_matrix = True
+                circ_zyyz = noise_model.apply(circ_zyyz)
+                circ_zyyz.density_matrix = True
+
             circ_x_list.append(circ_zxxz)
             circ_y_list.append(circ_zyyz)
 
@@ -1789,6 +1829,16 @@ class XXZ_folded:
         for key, value in counts.items():
             if key[-1] == '1':
                 new_counts[key[0:self.N]] = value
+        return new_counts
+    
+    def counts_to_qibo(self, counts):
+        from collections import Counter
+        new_counts = Counter()
+        for key, value in counts.items():
+            new_key = ''
+            for i in range(len(key)):
+                new_key += str(key[i])
+            new_counts[new_key] = value
         return new_counts
     
     def create_repeated_string(self):
@@ -1834,9 +1884,23 @@ class XXZ_folded:
                 keep_aux = keep
 
         circ = self.circ_full
-        circ = self.circ_to_quantinuum(circ)
+        circ = self.circ_to_quantinuum(circ, error_detection=error_detection)
+
+
+        # from pytket.extensions.qiskit import AerStateBackend
+        # aer_state_b = AerStateBackend()
+        # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
+
+        # state_handle = aer_state_b.process_circuit(circ_quantinuum)
+        # statevector = aer_state_b.get_result(state_handle).get_state()
+        # circ.density_matrix = False
+        # from qibo.backends import construct_backend
+        # backend = construct_backend("qibojit",platform='numba')
+        # from qibo.quantum_info import fidelity
+        # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
 
         circ_z = circ.copy()
+        circ_z.measure_all
         for j, q in enumerate(keep_aux):
             circ_z.Measure(q, j)
 
@@ -1854,23 +1918,27 @@ class XXZ_folded:
             circ_y.Measure(q, j)
 
                 
-        circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=3)
-        circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=3)
-        circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=3)
+        circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
+        circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
+        circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
+        print('depth quantinuum', circ_z.depth())
+        print('1q gates quantinuum', circ_z.n_1qb_gates())
+        print('2q gates quantinuum', circ_z.n_2qb_gates())
 
-        handle = device_backend.process_circuit(circ_z, n_shots=nshots)
-        counts_z = device_backend.get_result(handle).get_counts()
 
-        handle = device_backend.process_circuit(circ_x, n_shots=nshots)
-        counts_x = device_backend.get_result(handle).get_counts()
 
-        handle = device_backend.process_circuit(circ_y, n_shots=nshots)
-        counts_y = device_backend.get_result(handle).get_counts()
+        # handle = device_backend.process_circuit(circ_z, n_shots=nshots)
+        # counts_z = device_backend.get_result(handle).get_counts()
+        # handle = device_backend.process_circuit(circ_x, n_shots=nshots)
+        # counts_x = device_backend.get_result(handle).get_counts()
 
-        if self.D == 0 and error_detection:
-            counts_x = self.postselect_counts(counts_x)
-            counts_y = self.postselect_counts(counts_y)
-            counts_z = self.postselect_counts(counts_z)
+        # handle = device_backend.process_circuit(circ_y, n_shots=nshots)
+        # counts_y = device_backend.get_result(handle).get_counts()
+
+        # if self.D == 0 and error_detection:
+        #     counts_x = self.postselect_counts(counts_x)
+        #     counts_y = self.postselect_counts(counts_y)
+        #     counts_z = self.postselect_counts(counts_z)
 
         # counts zxxz
         # counts zyyz
@@ -1917,28 +1985,62 @@ class XXZ_folded:
             for j, q in enumerate(keep_aux):
                     circ_zxxz.Measure(q, j)
                     circ_zyyz.Measure(q, j)
+            circ_zxxz = device_backend.get_compiled_circuit(circ_zxxz, optimisation_level=2)
+            circ_zyyz = device_backend.get_compiled_circuit(circ_zyyz, optimisation_level=2)
             circ_x_list.append(circ_zxxz)
             circ_y_list.append(circ_zyyz)
 
         #execute circs zxxz and zyyz
+        # counts_zxxz_list = []
+        # counts_zyyz_list = []
+        # for circ_zxxz, circ_zyyz in zip(circ_x_list, circ_y_list):
+        #     circ_zxxz = device_backend.get_compiled_circuit(circ_zxxz, optimisation_level=3)
+        #     circ_zyyz = device_backend.get_compiled_circuit(circ_zyyz, optimisation_level=3)
+
+        #     handle = device_backend.process_circuit(circ_zxxz, n_shots=nshots)
+        #     counts_zxxz = device_backend.get_result(handle).get_counts()
+
+        #     handle = device_backend.process_circuit(circ_zyyz, n_shots=nshots)
+        #     counts_zyyz = device_backend.get_result(handle).get_counts()
+
+        #     if self.D == 0 and error_detection:
+        #         counts_zxxz = self.postselect_counts(counts_zxxz)
+        #         counts_zyyz = self.postselect_counts(counts_zyyz)
+
+        #     counts_zxxz.append(counts_zxxz)
+        #     counts_zyyz.append(counts_zyyz)
+
+
+        # Execute all circuits in one batch
+
+        circs = [circ_z, circ_x, circ_y] + circ_x_list + circ_y_list
+        handles = device_backend.process_circuits(circs, n_shots=nshots)
+        results = device_backend.get_results(handles)
+        counts_z = results[0].get_counts()
+        counts_x = results[1].get_counts()
+        counts_y = results[2].get_counts()
+
+        counts_z = self.counts_to_qibo(counts_z)
+        counts_x = self.counts_to_qibo(counts_x)
+        counts_y = self.counts_to_qibo(counts_y)
+
+        if self.D == 0 and error_detection:
+            counts_x = self.postselect_counts(counts_x)
+            counts_y = self.postselect_counts(counts_y)
+            counts_z = self.postselect_counts(counts_z)
+            
         counts_zxxz_list = []
         counts_zyyz_list = []
-        for circ_zxxz, circ_zyyz in zip(circ_x_list, circ_y_list):
-            circ_zxxz = device_backend.get_compiled_circuit(circ_zxxz, optimisation_level=3)
-            circ_zyyz = device_backend.get_compiled_circuit(circ_zyyz, optimisation_level=3)
-
-            handle = device_backend.process_circuit(circ_zxxz, n_shots=nshots)
-            counts_zxxz = device_backend.get_result(handle).get_counts()
-
-            handle = device_backend.process_circuit(circ_zyyz, n_shots=nshots)
-            counts_zyyz = device_backend.get_result(handle).get_counts()
-
+        for i in range(num_iter):
+            counts_zxxz = results[i+3].get_counts()
+            counts_zyyz = results[i+num_iter+3].get_counts()
+            counts_zxxz = self.counts_to_qibo(counts_zxxz)
+            counts_zyyz = self.counts_to_qibo(counts_zyyz)
             if self.D == 0 and error_detection:
                 counts_zxxz = self.postselect_counts(counts_zxxz)
                 counts_zyyz = self.postselect_counts(counts_zyyz)
-
-            counts_zxxz.append(counts_zxxz)
-            counts_zyyz.append(counts_zyyz)
+            counts_zxxz_list.append(counts_zxxz)
+            counts_zyyz_list.append(counts_zyyz)
 
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
     
@@ -2095,6 +2197,13 @@ class XXZ_folded:
 
         return ej_val
     
+    def sample_nonlocal_pauli(self, num, counts_z, boundaries):
+
+        nonlocal_pauli = self.get_nonlocal_pauli(num, boundaries)
+        nonlocal_pauli_val = nonlocal_pauli.expectation_from_samples(counts_z)
+
+        return nonlocal_pauli_val
+    
     def trace_frequencies(self, freqs, qubits):
         nqubits = len(list(freqs.keys())[0])
         freq_array = np.zeros(2**nqubits)
@@ -2180,7 +2289,7 @@ class XXZ_folded:
                     qubits = [j,j+1,j+2,j+3]
 
                 zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz)
-        
+                
                 counts_zxxz_j = self.trace_frequencies(counts_zxxz, qubits)
 
                 counts_zyyz_j = self.trace_frequencies(counts_zyyz, qubits)

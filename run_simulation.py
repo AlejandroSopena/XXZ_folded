@@ -10,7 +10,7 @@ from qiskit import transpile, qasm2
 
 from qibo import set_backend, set_precision, set_threads, gates, Circuit
 from qibo.quantum_info import fidelity
-from qibo.noise import NoiseModel, DepolarizingError
+from qibo.noise import NoiseModel, DepolarizingError, ThermalRelaxationError, ReadoutError
 from qibo.models.error_mitigation import sample_training_circuit_cdr
 from qibo.backends import _check_backend_and_local_state, construct_backend
 from qibo.symbols import I
@@ -29,13 +29,14 @@ def main():
     parser = argparse.ArgumentParser(description="Run simulation with specified parameters.")
     parser.add_argument('--basis_gates', nargs='+', default=['cx', 'rz', 'sx', 'x', 'id'], help='List of basis gates')
     parser.add_argument('--boundaries', type=bool, default=False, help='Boundaries flag')
-    parser.add_argument('--error_detection', type=bool, default=False, help='Boundaries flag')
+    parser.add_argument('--error_detection', type=bool, help='Boundaries flag')
     parser.add_argument('--lamb', type=float, default=3e-3, help='Lambda value')
     parser.add_argument('--n_training_samples', type=int, default=50, help='Number of training samples')
     parser.add_argument('--path', type=str, default='result', help='Path to save states')
     parser.add_argument('--N', type=int, default=7, help='Number of qubits')
     parser.add_argument('--M', type=int, default=1, help='Number of magnons')
     parser.add_argument('--D', type=int, default=2, help='Number of domain walls')
+    parser.add_argument('--momentum_ints', type=list, default=[], help='Momentum integers')
     parser.add_argument('--domain_pos', type=parse_nested_list, default=[[5,6]], help='Domain positions')
     parser.add_argument('--connectivity', type=str, default=None, help='Connectivity type')
     parser.add_argument('--backend', type=str, default='numba', help='Calculation engine: numba or cupy')
@@ -53,17 +54,42 @@ def main():
     N = args.N
     M = args.M
     D = args.D
+    momentum_ints = args.momentum_ints
     domain_pos = args.domain_pos
     connectivity = args.connectivity
     backend_name = args.backend
     precision = args.precision
     nthreads = args.nthreads
 
+    momentum_ints = np.linspace(1, N-M-D+1, M).tolist()
+
     if lamb == 0:
         noise_model = None
     else:
         noise_model = NoiseModel() 
         noise_model.add(DepolarizingError(lamb),gates.CNOT)
+
+        # p1_fault = 2.9e-5
+        # p2_fault = 1.28e-3
+        # p_meas_0 = 5e-4
+        # p_meas_1 = 2.5e-3
+        # p1_emision = 3.2e-1
+        # p2_emision = 4.8e-1
+
+        # t1 = 1/(p1_emision + p2_emision)
+        # t2 = 2*t1
+        # t_gate = 1e-3*t2
+        # readout_matrix = np.array([[1-p_meas_0, p_meas_0], [p_meas_1, 1-p_meas_1]])
+        # noise_model = NoiseModel() 
+        # noise_model.add(DepolarizingError(p2_fault),gates.RZZ)
+        # noise_model.add(DepolarizingError(p1_fault),gates.U3)
+        # noise_model.add(ThermalRelaxationError(t1, t2, t_gate), gates.RZZ)
+        # noise_model.add(ReadoutError(readout_matrix), gates.M)
+
+
+
+
+
 
 
     if connectivity == 'google_sycamore':
@@ -93,7 +119,8 @@ def main():
     if backend.platform == 'cupy':
         import cupy as cp
 
-    model = XXZ_folded(N, M, D, domain_pos, backend)
+    model = XXZ_folded(N, M, D, momentum_ints, domain_pos, backend)
+
     model._get_roots()
     circ_xx, circ_xxb = model.get_xx_b_circuit()
     circ_u0 = model.get_U0_circ()
@@ -141,12 +168,25 @@ def main():
     print('nqubits', circ.nqubits)
     print('\n')
 
-    model.circ_full = circ
+    # from pytket.qasm import circuit_to_qasm_str
+    # from pytket.extensions.quantinuum import QuantinuumBackend
+    # device_backend = QuantinuumBackend('H2-1E')
+
+    # circ_quantinuum = model.circ_to_quantinuum(circ, error_detection=error_detection)
+    # circ_quantinuum = device_backend.get_compiled_circuit(circ_quantinuum, optimisation_level=2)
+    # # qasm_code = circuit_to_qasm_str(circ_quantinuum)
+    # # circ = Circuit.from_qasm(qasm_code)
+    # from pytket.extensions.qiskit import tk_to_qiskit
+    # circ_qiskit = tk_to_qiskit(circ_quantinuum)
+    # qasm_code = qasm2.dumps(circ_qiskit)  
+    # circ = Circuit.from_qasm(qasm_code)
+
+    #model.circ_full = circ
 ###################################
     layout_final = None
     state_noiseless = model.get_state(density_matrix=False, boundaries=boundaries, layout=layout_final)
 
-    # circ_quantinuum = model.circ_to_quantinuum(circ)
+    # circ_quantinuum = model.circ_to_quantinuum(circ, error_detection=error_detection)
     # from pytket.extensions.qiskit import AerStateBackend
     # aer_state_b = AerStateBackend()
     # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
@@ -161,6 +201,7 @@ def main():
     Q2_noiseless = model.get_correlation(state_noiseless, boundaries=boundaries)
     E1_noiseless = model.get_ej_expectation(1, state_noiseless, boundaries=boundaries)
     E2_noiseless = model.get_ej_expectation(2, state_noiseless, boundaries=boundaries)
+    nonlocal_pauli_noiseless = model.get_nonlocal_pauli_expectation(3, state_noiseless, boundaries=boundaries)
 
     if backend.platform == 'cupy':
         energy_noiseless = float(energy_noiseless.get())
@@ -178,9 +219,23 @@ def main():
     print("  Q2: ", Q2_noiseless)
     print("  E1: ", E1_noiseless)
     print("  E2: ", E2_noiseless)
+    print("  Nonlocal Pauli: ", nonlocal_pauli_noiseless)
 
-    nshots = 100
-    counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, error_detection=error_detection, backend=backend) 
+    nshots = 1000
+    #counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, error_detection=error_detection, backend=backend)
+
+    # shots_x = np.sum(list(counts_x.values()))
+    # shots_y = np.sum(list(counts_y.values()))
+    # shots_z = np.sum(list(counts_z.values()))
+    # print('shots_x', shots_x, 'shots_y', shots_y, 'shots_z', shots_z)
+
+    #print(counts_z)
+    from pytket.extensions.quantinuum import QuantinuumBackend
+    device_backend = QuantinuumBackend('H2-1E')
+    #from pytket.extensions.qiskit import AerBackend
+    #device_backend = AerBackend()
+    counts_x, counts_y, counts_z, counts_energy = model.sample_circuit_quantinuum(device_backend, nshots, layout_final, boundaries=boundaries, error_detection=error_detection) 
+    #print(counts_z)
 
     q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
     q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
@@ -188,14 +243,16 @@ def main():
 
     e1_sample = model.sample_ej(1, counts_z, boundaries=boundaries)
     e2_sample = model.sample_ej(2, counts_z, boundaries=boundaries)
+    nonlocal_pauli_sample = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
     new_indices_list, counts_zxxz_list, counts_zyyz_list = counts_energy
     energy_sample = model.sample_energy(counts_x, counts_y, new_indices_list, counts_zxxz_list, counts_zyyz_list, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
 
+    print("  Energy sample: ", energy_sample)
     print("  Q1 sample: ", q1_sample)
     print("  Q2 sample: ", q2_sample)
     print("  E1 sample: ", e1_sample)
     print("  E2 sample: ", e2_sample)
-    print("  Energy sample: ", energy_sample)
+    print("  Nonlocal Pauli sample: ", nonlocal_pauli_sample)
     
     start_time = time.time()
     state_noise = model.get_state(density_matrix=density_matrix, boundaries=boundaries, noise_model=noise_model, layout=layout_final)
