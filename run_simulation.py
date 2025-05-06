@@ -223,7 +223,7 @@ def main():
     # qasm_code = qasm2.dumps(circ_qiskit)
     # circ = Circuit.from_qasm(qasm_code)
 
-    # model.circ_full = circ
+    model.circ_full = circ
     ###################################
     layout_final = None
     state_noiseless = model.get_state(

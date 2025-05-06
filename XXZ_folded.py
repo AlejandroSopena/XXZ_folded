@@ -1539,17 +1539,27 @@ class XXZ_folded:
         for g in gate_list:
             control_qubits = g.control_qubits
             target_qubits = g.target_qubits
-            if isinstance(g, gates.X) or isinstance(g, gates.SWAP) or isinstance(g, gates.TOFFOLI):
+            if isinstance(g, (gates.X, gates.SWAP, gates.TOFFOLI, gates.SX, gates.RZ)):
                 if isinstance(g, gates.X):
                     g1 = OpType.X
                 elif isinstance(g, gates.SWAP):
                     g1 = OpType.SWAP
                 elif isinstance(g, gates.TOFFOLI):
                     g1 = OpType.X
+                elif isinstance(g, gates.SX):
+                    g1 = OpType.SX
+                elif isinstance(g, gates.RZ):
+                    g1 = OpType.Rz
                 if len(control_qubits) == 0:
-                    circ_quantinuum.add_gate(g1, target_qubits)
+                    if isinstance(g, gates.RZ):
+                        circ_quantinuum.add_gate(g1, g.parameters[0]/np.pi, target_qubits)
+                    else:
+                        circ_quantinuum.add_gate(g1, target_qubits)
                 else:
-                    circ_quantinuum.add_gate(QControlBox(Op.create(g1),n_controls=len(control_qubits)), control_qubits+target_qubits)
+                    if isinstance(g, gates.RZ):
+                        circ_quantinuum.add_gate(QControlBox(Op.create(g1),n_controls=len(control_qubits)), g.parameters[0]/np.pi, control_qubits+target_qubits)
+                    else:
+                        circ_quantinuum.add_gate(QControlBox(Op.create(g1),n_controls=len(control_qubits)), control_qubits+target_qubits)
             elif isinstance(g, gates.CNOT):
                 circ_quantinuum.add_gate(OpType.CX, control_qubits+target_qubits)
             elif isinstance(g, gates.CZ):

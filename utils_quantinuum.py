@@ -13,7 +13,7 @@ def counts_to_qibo(counts):
     return new_counts
 
 def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, counts=False):
-    qnx.login_with_credentials()
+    #qnx.login_with_credentials()
     my_project_ref = qnx.projects.get_or_create(name=name_project)
 
     backend_config = qnx.QuantinuumConfig(device_name=device)
@@ -24,6 +24,13 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
                                         optimisation_level=optimization_level, backend_config=backend_config, project=my_project_ref)
     qnx.jobs.wait_for(compile_job)
     compiled_circuits = [item.get_output() for item in qnx.jobs.results(compile_job)]
+
+    # print('Depth quantinuum:')
+    # for i, circ in enumerate(compiled_circuits):
+    #     print(f'Circuit {i}:')
+    #     print(f' Depth:', circ.depth())
+    #     print(f' 1q gates:', circ.n_1qb_gates())
+    #     print(f' 2q gates:', circ.n_2qb_gates())
 
     execute_job_ref = qnx.start_execute_job(circuits=compiled_circuits, name=f"execution_{name_project}_{datetime.now()}", n_shots=[nshots] * len(compiled_circuits), 
                                             backend_config=backend_config, project=my_project_ref)
