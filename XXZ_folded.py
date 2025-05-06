@@ -8,6 +8,7 @@ from qibo.backends import _check_backend, construct_backend
 
 from initial_b_matrix import get_b_circuit
 from XX_model import XX_model
+from utils_quantinuum import counts_to_qibo, compile_quantinuum
 
 
 def partial_trace_vector(state, keep_indices):
@@ -1378,6 +1379,7 @@ class XXZ_folded:
         obs = SymbolicHamiltonian(obs, backend=self.backend)
 
         return obs
+    
     def get_state(self, noise_model=None, boundaries=True, density_matrix=False, state=None, layout=None):
         # if self.D == 0:
         #     circ = self.circ_Psi_M_0
@@ -1525,12 +1527,12 @@ class XXZ_folded:
                     
         return circ_qiskit
     
-    def circ_to_quantinuum(self, circ, error_detection=False):
+    def circ_to_quantinuum(self, circ, measure_all=False):
         from pytket.circuit import Circuit, OpType, QControlBox, Unitary2qBox, Unitary1qBox, Op
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
-        if error_detection:
+        if measure_all:
             circ_quantinuum = Circuit(circ.nqubits, circ.nqubits)
         else:
             circ_quantinuum = Circuit(circ.nqubits, self.N)
@@ -1742,9 +1744,9 @@ class XXZ_folded:
         counts_y = result_y.frequencies()
 
         if self.D == 0 and error_detection:
-            counts_x = self.postselect_counts(counts_x)
-            counts_y = self.postselect_counts(counts_y)
-            counts_z = self.postselect_counts(counts_z)
+            counts_x = self.get_nsites_counts(counts_x, error_detection)
+            counts_y = self.get_nsites_counts(counts_y, error_detection)
+            counts_z = self.get_nsites_counts(counts_z, error_detection)
 
         # counts zxxz
         # counts zyyz
@@ -1814,31 +1816,25 @@ class XXZ_folded:
             counts_zyyz = result_zyyz.frequencies()
 
             if self.D == 0 and error_detection:
-                counts_zxxz = self.postselect_counts(counts_zxxz)
-                counts_zyyz = self.postselect_counts(counts_zyyz)
+                counts_zxxz = self.get_nsites_counts(counts_zxxz, error_detection)
+                counts_zyyz = self.get_nsites_counts(counts_zyyz, error_detection)
 
             counts_zxxz_list.append(counts_zxxz)
             counts_zyyz_list.append(counts_zyyz)
 
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
     
-    def postselect_counts(self, counts):
+    def get_nsites_counts(self, counts, postselect=True):
         # only for D=0
         from collections import Counter
         new_counts = Counter()
         for key, value in counts.items():
-            if key[-1] == '1':
-                new_counts[key[0:self.N]] = value
-        return new_counts
-    
-    def counts_to_qibo(self, counts):
-        from collections import Counter
-        new_counts = Counter()
-        for key, value in counts.items():
-            new_key = ''
-            for i in range(len(key)):
-                new_key += str(key[i])
-            new_counts[new_key] = value
+            if postselect:
+                if key[self.N:self.N+self.M+1] == '0'*self.M+'1':
+                    new_counts[key[0:self.N]] = value
+            else:
+                new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+
         return new_counts
     
     def create_repeated_string(self):
@@ -1846,7 +1842,7 @@ class XXZ_folded:
         result = (pattern * ((self.N) // len(pattern) + 1))[:self.N]
         return result
 
-    def sample_circuit_quantinuum(self, device_backend, nshots, layout, boundaries=False,  error_detection = False): #it works without boundaries
+    def sample_circuit_quantinuum(self, device, nshots, layout, boundaries=False,  measure_all = False): #it works without boundaries
         
         if self.D != 0:
             if boundaries:
@@ -1870,7 +1866,7 @@ class XXZ_folded:
             else:
                 keep = list(range(self.N))
                 aux = list(range(self.N,self.N+self.M+1))
-                if error_detection:
+                if measure_all:
                     keep_aux = keep + aux
                 else:
                     keep_aux = keep
@@ -1878,13 +1874,13 @@ class XXZ_folded:
         if layout is not None:
             keep = [layout[k] for k in keep]
             aux = [layout[k] for k in aux]
-            if self.D == 0 and error_detection:
+            if self.D == 0 and measure_all:
                 keep_aux = keep + aux
             else:
                 keep_aux = keep
 
         circ = self.circ_full
-        circ = self.circ_to_quantinuum(circ, error_detection=error_detection)
+        circ = self.circ_to_quantinuum(circ, measure_all=measure_all)
 
 
         # from pytket.extensions.qiskit import AerStateBackend
@@ -1918,30 +1914,13 @@ class XXZ_folded:
             circ_y.Measure(q, j)
 
                 
-        circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
-        circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
-        circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
-        print('depth quantinuum', circ_z.depth())
-        print('1q gates quantinuum', circ_z.n_1qb_gates())
-        print('2q gates quantinuum', circ_z.n_2qb_gates())
+        # circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
+        # circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
+        # circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
+        # print('depth quantinuum', circ_z.depth())
+        # print('1q gates quantinuum', circ_z.n_1qb_gates())
+        # print('2q gates quantinuum', circ_z.n_2qb_gates())
 
-
-
-        # handle = device_backend.process_circuit(circ_z, n_shots=nshots)
-        # counts_z = device_backend.get_result(handle).get_counts()
-        # handle = device_backend.process_circuit(circ_x, n_shots=nshots)
-        # counts_x = device_backend.get_result(handle).get_counts()
-
-        # handle = device_backend.process_circuit(circ_y, n_shots=nshots)
-        # counts_y = device_backend.get_result(handle).get_counts()
-
-        # if self.D == 0 and error_detection:
-        #     counts_x = self.postselect_counts(counts_x)
-        #     counts_y = self.postselect_counts(counts_y)
-        #     counts_z = self.postselect_counts(counts_z)
-
-        # counts zxxz
-        # counts zyyz
             
         num_iter = 3 #int((self.N-self.N%3)/3) - 1
 
@@ -1985,60 +1964,33 @@ class XXZ_folded:
             for j, q in enumerate(keep_aux):
                     circ_zxxz.Measure(q, j)
                     circ_zyyz.Measure(q, j)
-            circ_zxxz = device_backend.get_compiled_circuit(circ_zxxz, optimisation_level=2)
-            circ_zyyz = device_backend.get_compiled_circuit(circ_zyyz, optimisation_level=2)
             circ_x_list.append(circ_zxxz)
             circ_y_list.append(circ_zyyz)
-
-        #execute circs zxxz and zyyz
-        # counts_zxxz_list = []
-        # counts_zyyz_list = []
-        # for circ_zxxz, circ_zyyz in zip(circ_x_list, circ_y_list):
-        #     circ_zxxz = device_backend.get_compiled_circuit(circ_zxxz, optimisation_level=3)
-        #     circ_zyyz = device_backend.get_compiled_circuit(circ_zyyz, optimisation_level=3)
-
-        #     handle = device_backend.process_circuit(circ_zxxz, n_shots=nshots)
-        #     counts_zxxz = device_backend.get_result(handle).get_counts()
-
-        #     handle = device_backend.process_circuit(circ_zyyz, n_shots=nshots)
-        #     counts_zyyz = device_backend.get_result(handle).get_counts()
-
-        #     if self.D == 0 and error_detection:
-        #         counts_zxxz = self.postselect_counts(counts_zxxz)
-        #         counts_zyyz = self.postselect_counts(counts_zyyz)
-
-        #     counts_zxxz.append(counts_zxxz)
-        #     counts_zyyz.append(counts_zyyz)
 
 
         # Execute all circuits in one batch
 
         circs = [circ_z, circ_x, circ_y] + circ_x_list + circ_y_list
-        handles = device_backend.process_circuits(circs, n_shots=nshots)
-        results = device_backend.get_results(handles)
+
+        optimization_level = 3
+        name_project = "XXZ_folded"
+        results = compile_quantinuum(circs, name_project, optimization_level, nshots, device, counts=False)
+
         counts_z = results[0].get_counts()
         counts_x = results[1].get_counts()
         counts_y = results[2].get_counts()
 
-        counts_z = self.counts_to_qibo(counts_z)
-        counts_x = self.counts_to_qibo(counts_x)
-        counts_y = self.counts_to_qibo(counts_y)
-
-        if self.D == 0 and error_detection:
-            counts_x = self.postselect_counts(counts_x)
-            counts_y = self.postselect_counts(counts_y)
-            counts_z = self.postselect_counts(counts_z)
+        counts_z = counts_to_qibo(counts_z)
+        counts_x = counts_to_qibo(counts_x)
+        counts_y = counts_to_qibo(counts_y)
             
         counts_zxxz_list = []
         counts_zyyz_list = []
         for i in range(num_iter):
             counts_zxxz = results[i+3].get_counts()
             counts_zyyz = results[i+num_iter+3].get_counts()
-            counts_zxxz = self.counts_to_qibo(counts_zxxz)
-            counts_zyyz = self.counts_to_qibo(counts_zyyz)
-            if self.D == 0 and error_detection:
-                counts_zxxz = self.postselect_counts(counts_zxxz)
-                counts_zyyz = self.postselect_counts(counts_zyyz)
+            counts_zxxz = counts_to_qibo(counts_zxxz)
+            counts_zyyz = counts_to_qibo(counts_zyyz)
             counts_zxxz_list.append(counts_zxxz)
             counts_zyyz_list.append(counts_zyyz)
 
