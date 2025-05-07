@@ -1852,7 +1852,7 @@ class XXZ_folded:
         result = (pattern * ((self.N) // len(pattern) + 1))[:self.N]
         return result
 
-    def sample_circuit_quantinuum(self, device, nshots, layout, boundaries=False,  measure_all = False): #it works without boundaries
+    def sample_circuit_quantinuum(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True): #it works without boundaries
         
         if self.D != 0:
             if boundaries:
@@ -1984,7 +1984,7 @@ class XXZ_folded:
 
         optimization_level = 3
         name_project = "XXZ_folded"
-        results, compiled_circuits = compile_quantinuum(circs, name_project, optimization_level, nshots, device, counts=False)
+        results, compiled_circuits = compile_quantinuum(circs, name_project, optimization_level, nshots, device, compile, counts=False)
 
         counts_z = results[0].get_counts()
         counts_x = results[1].get_counts()

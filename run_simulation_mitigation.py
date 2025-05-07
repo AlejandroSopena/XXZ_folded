@@ -296,7 +296,7 @@ def main():
     measure_all = True
     error_detection = True
     counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
-        device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all
+        device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=True
     )
     new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
     if measure_all:
@@ -394,42 +394,13 @@ def main():
         counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
     np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
 
-    # start_time = time.time()
-    # state_noise = model.get_state(
-    #     density_matrix=density_matrix,
-    #     boundaries=boundaries,
-    #     noise_model=noise_model,
-    #     layout=layout_final,
-    # )
-    # end_time = time.time()
-    # elapsed_time = end_time - start_time
-    # print(f"Elapsed time: {elapsed_time} seconds")
-
-    # if backend.platform == "cupy":
-    #     cp.get_default_memory_pool().free_all_blocks()
-
-    # fid = fidelity(state_noiseless, state_noise, backend=backend)
-
-    # energy = model.get_energy(state_noise, boundaries=boundaries)
-    # q1_val = model.get_magnetization(state_noise, boundaries=boundaries)
-    # q2_val = model.get_correlation(state_noise, boundaries=boundaries)
-
-    # print("Noisy")
-    # print("  Fidelity: ", fid)
-    # print("  Energy:", energy)
-    # print("  Q1: ", q1_val)
-    # print("  Q2: ", q2_val)
-
-    # np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": state_noise})
-
-    # del state_noiseless
-    # del state_noise
-
     if backend.platform == "cupy":
         cp.get_default_memory_pool().free_all_blocks()
 
     circ = model.circ_full
-
+    
+    # CDR 
+    
     seed = None
     backend = None
     backend, local_state = _check_backend_and_local_state(seed, backend)
@@ -461,7 +432,7 @@ def main():
         #         f,
         #     )
         # subprocess.run(["python", "training_results_quantinuum.py"])
-        _get_state(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend)
+        _get_state(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=True)
     states = np.load(path + "/state.npy", allow_pickle=True).item()
     noisy_state = states["noisy"]
 
@@ -550,7 +521,6 @@ def main():
             elif observable_label == "Nonlocal Pauli":
                 val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
                 val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
-
 
             if backend.platform == "cupy":
                 val = float(val.get())

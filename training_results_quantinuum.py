@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 import time
 
-def _get_state(model, i, path, device, nshots, measure_all, error_detection, boundaries=False, layout=None, backend=None):
+def _get_state(model, i, path, device, nshots, measure_all, error_detection, boundaries=False, layout=None, backend=None, compile=True):
     circuits = np.load(path+'/training_states/training_circuits.npy',allow_pickle=True)
     circuit = circuits[i]
     model.circ_full = circuit
@@ -12,7 +12,7 @@ def _get_state(model, i, path, device, nshots, measure_all, error_detection, bou
     #state2 = model.get_state(noise_model=noise_model, boundaries=boundaries, density_matrix=density_matrix, layout=layout)
 
     counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
-        device, nshots, layout, boundaries=boundaries, measure_all=measure_all
+        device, nshots, layout, boundaries=boundaries, measure_all=measure_all, compile=compile
     )
     new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
     if measure_all:

@@ -12,13 +12,16 @@ def counts_to_qibo(counts):
         new_counts[new_key] = value
     return new_counts
 
-def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, counts=False):
+def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, compile=True, counts=False):
     #qnx.login_with_credentials()
 
     if device == 'local_noiseless_simulator':
         from pytket.extensions.qiskit import AerBackend
         aer_state_b = AerBackend()
-        compiled_circuits = aer_state_b.get_compiled_circuits(circuits)
+        if compile:
+            compiled_circuits = aer_state_b.get_compiled_circuits(circuits)
+        else:
+            compiled_circuits = circuits
 
         results_handle = aer_state_b.process_circuits(compiled_circuits)
         results = aer_state_b.get_results(results_handle)
@@ -29,13 +32,19 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
 
         circuit_refs = [qnx.circuits.upload(name=f"circuit_{i}",circuit=circuits[i],project=my_project_ref) for i in range(len(circuits))]
 
-        compile_job = qnx.start_compile_job(circuits=circuit_refs, name=f"compilation_{name_project}_{datetime.now()}", 
-                                            optimisation_level=optimization_level, backend_config=backend_config, project=my_project_ref)
-        print(compile_job.df())
-        qnx.jobs.wait_for(compile_job)
-        compiled_circuits = [item.get_output() for item in qnx.jobs.results(compile_job)]
+        if compile:
+            compile_job = qnx.start_compile_job(circuits=circuit_refs, name=f"compilation_{name_project}_{datetime.now()}", 
+                                                optimisation_level=optimization_level, backend_config=backend_config, project=my_project_ref)
+            print(compile_job.df())
+            qnx.jobs.wait_for(compile_job)
 
-        execute_job_ref = qnx.start_execute_job(circuits=compiled_circuits, name=f"execution_{name_project}_{datetime.now()}", n_shots=[nshots] * len(compiled_circuits), 
+            compiled_circuits_ref = [item.get_output() for item in qnx.jobs.results(compile_job)]
+            compiled_circuits = [compiled_circuit_ref.download_circuit() for compiled_circuit_ref in compiled_circuits_ref]
+        else:
+            compiled_circuits_ref = circuit_refs
+            compiled_circuits = circuits
+            
+        execute_job_ref = qnx.start_execute_job(circuits=compiled_circuits_ref, name=f"execution_{name_project}_{datetime.now()}", n_shots=[nshots] * len(compiled_circuits), 
                                                 backend_config=backend_config, project=my_project_ref)
         print(execute_job_ref.df())
         qnx.jobs.wait_for(execute_job_ref)
@@ -43,7 +52,7 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
         execute_job_result_refs = qnx.jobs.results(execute_job_ref)
         results = [execute_job_result_refs[i].download_result() for i in range(len(execute_job_result_refs))]
 
-        compiled_circuits = [compiled_circuit.download_circuit() for compiled_circuit in compiled_circuits]
+        
 
     print(f' Depth:', [circ.depth() for circ in compiled_circuits])
     print(f' 1q gates:', [circ.n_1qb_gates() for circ in compiled_circuits])
@@ -55,3 +64,18 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
         return qibo_counts, compiled_circuits
     
     return results, compiled_circuits
+
+def circuits_zne_quantinuum(circuit, num_insertions):
+    # 2*num_insertions + 1 = noise_levels
+    from pytket import Circuit, OpType
+
+    folded_circ = Circuit(circuit.n_qubits, circuit.n_bits)
+    for gate in circuit.get_commands():
+        folded_circ.add_gate(gate.op, gate.args)
+        if gate.op.type == OpType.ZZPhase:
+            for _ in range(num_insertions):
+                folded_circ.add_gate(gate.op.dagger, gate.args)
+                folded_circ.add_gate(gate.op, gate.args)
+
+    return folded_circ
+
