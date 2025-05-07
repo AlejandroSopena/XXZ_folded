@@ -80,6 +80,12 @@ def main():
     parser.add_argument(
         "--nthreads", type=int, default=8, help="Number of threads for numba"
     )
+    parser.add_argument(
+        "--device", type=str, default="local_noiseless_simulator", help="Quantinuum device (H1-1E, H2-1E). Default: local_noiseless_simulator"
+    )
+    parser.add_argument(
+        "--nshots", type=int, default=1000, help="Number of shots for sampling"
+    )
 
     args = parser.parse_args()
 
@@ -98,7 +104,10 @@ def main():
     backend_name = args.backend
     precision = args.precision
     nthreads = args.nthreads
+    device = args.device
+    nshots = args.nshots
 
+    path = path + f"_N{N}_M{M}_D{D}"
     momentum_ints = np.linspace(1, N - M - D + 1, M).tolist()
     #momentum_ints = [i + 1 for i in range(M)]
 
@@ -225,6 +234,7 @@ def main():
     # circ = Circuit.from_qasm(qasm_code)
 
     model.circ_full = circ
+    np.save(path + "/circuit.npy", circ)
     ###################################
     layout_final = None
     state_noiseless = model.get_state(
@@ -270,7 +280,6 @@ def main():
     print("  E2: ", E2_noiseless)
     print("  Nonlocal Pauli: ", nonlocal_pauli_noiseless)
 
-    nshots = 1000
     # counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, error_detection=error_detection, backend=backend)
 
     # shots_x = np.sum(list(counts_x.values()))
@@ -284,10 +293,9 @@ def main():
     # from pytket.extensions.qiskit import AerBackend
     # device_backend = AerBackend()
 
-    device = "local_noiseless_simulator" #"H1-1E"
     measure_all = True
     error_detection = True
-    counts_x1, counts_y1, counts_z1, counts_energy1 = model.sample_circuit_quantinuum(
+    counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
         device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all
     )
     new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
@@ -384,7 +392,7 @@ def main():
         counts_result = [[counts_x, counts_x_post], [counts_y, counts_y_post], [counts_z, counts_z_post], [counts_zxxz_list, counts_zxxz_post_list], [counts_zyyz_list, counts_zyyz_post_list], new_indices_list]
     else:
         counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
-    np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": counts_result})
+    np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
 
     # start_time = time.time()
     # state_noise = model.get_state(
@@ -496,7 +504,7 @@ def main():
                 val = float(val.get())
             train_val["noiseless"].append(val)
 
-            counts = training_state["noisy"]
+            counts = training_state["noisy"][0]
             counts_x, counts_x_post = counts[0]
             counts_y, counts_y_post = counts[1]
             counts_z, counts_z_post = counts[2]
@@ -569,7 +577,7 @@ def main():
         )[0]
 
 
-        counts = noisy_state
+        counts = noisy_state[0]
         counts_x, counts_x_post = counts[0]
         counts_y, counts_y_post = counts[1]
         counts_z, counts_z_post = counts[2]
@@ -625,37 +633,43 @@ def main():
 
         if observable_label == "Q1":
             val = val + (model.N / 2)
+            val_post = val_post + (model.N / 2)
             mit_val = mit_val + (model.N / 2)
             mit_val_post = mit_val_post + (model.N / 2)
         elif observable_label == "Q2":
             val = val + ((model.N + 1) / 2)
+            val_post = val_post + ((model.N + 1) / 2)
             mit_val = mit_val + ((model.N + 1) / 2)
             mit_val_post = mit_val_post + ((model.N + 1) / 2)
         elif observable_label == "E1":
             val = val + (1 / 2**1)
+            val_post = val_post + (1 / 2**1)
             mit_val = mit_val + (1 / 2**1)
             mit_val_post = mit_val_post + (1 / 2**1)
         elif observable_label == "E2":
             val = val + (1 / 2**2)
+            val_post = val_post + (1 / 2**2)
             mit_val = mit_val + (1 / 2**2)
             mit_val_post = mit_val_post + (1 / 2**2)
-
-        return mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val
+        # train_val contains the expectation values of the noiseless and noisy states without constants to learn directly the model.
+        # mit_val, mit_val_post, val, val_post are the mitigated and noisy values with the constants added.
+        return mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val
 
     observables_label = ["Energy", "Q1", "Q2", "E1", "E2", "Nonlocal Pauli"]
     noiseless_val_list = [energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]
 
     results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless]]
     for i, observable_label in enumerate(observables_label):
-        mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val = get_mit_value(
+        mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value(
             observable_label, n_training_samples, noisy_state
         )
         
-        results.append([mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
+        results.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
         print(observable_label)
         print("  Mitigated: ", mit_val)
         print("  Mitigated post: ", mit_val_post)
         print("  Noisy: ", val)
+        print("  Noisy post: ", val_post)
         print("  Noiseless: ", noiseless_val_list[i])
         print("  Optimal parameters: ", optimal_params)
         print("  Optimal parameters post: ", optimal_params_post)

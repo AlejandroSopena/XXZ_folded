@@ -11,7 +11,7 @@ def _get_state(model, i, path, device, nshots, measure_all, error_detection, bou
     state1 = model.get_state(noise_model=None, boundaries=boundaries, density_matrix=False, layout=layout)
     #state2 = model.get_state(noise_model=noise_model, boundaries=boundaries, density_matrix=density_matrix, layout=layout)
 
-    counts_x1, counts_y1, counts_z1, counts_energy1 = model.sample_circuit_quantinuum(
+    counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
         device, nshots, layout, boundaries=boundaries, measure_all=measure_all
     )
     new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
@@ -49,10 +49,10 @@ def _get_state(model, i, path, device, nshots, measure_all, error_detection, bou
 
     training_state['noiseless'] = state1
     if error_detection:
-        training_state['noisy'] = [[counts_x, counts_x_post], [counts_y, counts_y_post], [counts_z, counts_z_post], [counts_zxxz_list, counts_zxxz_post_list], [counts_zyyz_list, counts_zyyz_post_list], new_indices_list]
+        counts_result = [[counts_x, counts_x_post], [counts_y, counts_y_post], [counts_z, counts_z_post], [counts_zxxz_list, counts_zxxz_post_list], [counts_zyyz_list, counts_zyyz_post_list], new_indices_list]
     else:
-        training_state['noisy'] = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
-
+        counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
+    training_state['noisy'] = [counts_result, compiled_circuits] 
     np.save(path+f'/training_states/states_{i}.npy', training_state)
 
 

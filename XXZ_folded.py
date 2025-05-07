@@ -1984,7 +1984,7 @@ class XXZ_folded:
 
         optimization_level = 3
         name_project = "XXZ_folded"
-        results = compile_quantinuum(circs, name_project, optimization_level, nshots, device, counts=False)
+        results, compiled_circuits = compile_quantinuum(circs, name_project, optimization_level, nshots, device, counts=False)
 
         counts_z = results[0].get_counts()
         counts_x = results[1].get_counts()
@@ -2004,7 +2004,7 @@ class XXZ_folded:
             counts_zxxz_list.append(counts_zxxz)
             counts_zyyz_list.append(counts_zyyz)
 
-        return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
+        return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list], compiled_circuits 
     
 
     def sample_energy_old(self, counts_x, counts_y, nshots, noise_model, layout, boundaries, backend=None):
