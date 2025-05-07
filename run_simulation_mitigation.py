@@ -24,7 +24,7 @@ from training_results_quantinuum import _get_state
 
 from XXZ_folded import XXZ_folded
 import qnexus as qnx
-qnx.login_with_credentials()
+#qnx.login_with_credentials()
 def main():
 
     def parse_nested_list(s):
@@ -270,7 +270,7 @@ def main():
     print("  E2: ", E2_noiseless)
     print("  Nonlocal Pauli: ", nonlocal_pauli_noiseless)
 
-    nshots = 100
+    nshots = 1000
     # counts_x, counts_y, counts_z, counts_energy = model.sample_circuit(nshots, noise_model, layout_final, boundaries=boundaries, error_detection=error_detection, backend=backend)
 
     # shots_x = np.sum(list(counts_x.values()))
@@ -284,7 +284,7 @@ def main():
     # from pytket.extensions.qiskit import AerBackend
     # device_backend = AerBackend()
 
-    device = "H1-1E"
+    device = "local_noiseless_simulator" #"H1-1E"
     measure_all = True
     error_detection = True
     counts_x1, counts_y1, counts_z1, counts_energy1 = model.sample_circuit_quantinuum(
@@ -457,17 +457,24 @@ def main():
     states = np.load(path + "/state.npy", allow_pickle=True).item()
     noisy_state = states["noisy"]
 
-    hamiltonian = model.get_xxz_folded_hamiltonian(boundaries)
-    q1_0 = model.get_q1(boundaries)
-    q2_0 = model.get_q2(boundaries)
-    q1 = q1_0 - (model.N / 2) * SymbolicHamiltonian(
-        I(q1_0.nqubits - 1), backend=backend
-    )
-    q2 = q2_0 - ((model.N + 1) / 2) * SymbolicHamiltonian(
-        I(q2_0.nqubits - 1), backend=backend
-    )
+    
 
-    def get_mit_value(observable, observable_label, n_training_samples, noisy_state):
+
+    def get_mit_value(observable_label, n_training_samples, noisy_state):
+
+        if observable_label == "Energy":
+            observable = model.get_xxz_folded_hamiltonian(boundaries)
+        elif observable_label == "Q1":
+            observable = model.get_q1(boundaries)
+        elif observable_label == "Q2":
+            observable = model.get_q2(boundaries)
+        elif observable_label == "E1":
+            observable = model.get_ej(1, boundaries)
+        elif observable_label == "E2":
+            observable = model.get_ej(2, boundaries)
+        elif observable_label == "Nonlocal Pauli":
+            observable = model.get_nonlocal_pauli(3, boundaries)
+
         train_val = {"noiseless": [], "noisy": []}
         for i in range(n_training_samples):
             training_state = np.load(
@@ -476,6 +483,15 @@ def main():
             state = training_state["noiseless"]
 
             val = observable.expectation(state)
+            if observable_label == "Q1":
+                val = val - (model.N / 2)
+            elif observable_label == "Q2":
+                val = val - ((model.N + 1) / 2)
+            elif observable_label == "E1":
+                val = val - (1 / 2**1)
+            elif observable_label == "E2":
+                val = val - (1 / 2**2)
+
             if backend.platform == "cupy":
                 val = float(val.get())
             train_val["noiseless"].append(val)
@@ -512,11 +528,20 @@ def main():
                     backend=backend,
                     )
             elif observable_label == "Q1":
-                val = model.sample_q1(counts_z, boundaries=boundaries)
-                val_post = model.sample_q1(counts_z_post, boundaries=boundaries)
+                val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
+                val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
             elif observable_label == "Q2":
-                val = model.sample_q2(counts_z, boundaries=boundaries)
-                val_post = model.sample_q2(counts_z_post, boundaries=boundaries)
+                val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
+                val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
+            elif observable_label == "E1":
+                val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
+                val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
+            elif observable_label == "E2":
+                val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
+                val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
+            elif observable_label == "Nonlocal Pauli":
+                val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
+                val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
 
 
             if backend.platform == "cupy":
@@ -576,11 +601,21 @@ def main():
                 backend=backend,
                 )
         elif observable_label == "Q1":
-            val = model.sample_q1(counts_z, boundaries=boundaries)
-            val_post = model.sample_q1(counts_z_post, boundaries=boundaries)
+            val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
+            val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
         elif observable_label == "Q2":
-            val = model.sample_q2(counts_z, boundaries=boundaries)
-            val_post = model.sample_q2(counts_z_post, boundaries=boundaries)
+            val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
+            val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
+        elif observable_label == "E1":
+            val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
+            val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
+        elif observable_label == "E2":
+            val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
+            val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
+        elif observable_label == "Nonlocal Pauli":
+            val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
+            val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
+
 
         if backend.platform == "cupy":
             val = float(val.get())
@@ -588,21 +623,40 @@ def main():
         mit_val = f(val, *optimal_params)
         mit_val_post = f(val_post, *optimal_params_post)
 
+        if observable_label == "Q1":
+            val = val + (model.N / 2)
+            mit_val = mit_val + (model.N / 2)
+            mit_val_post = mit_val_post + (model.N / 2)
+        elif observable_label == "Q2":
+            val = val + ((model.N + 1) / 2)
+            mit_val = mit_val + ((model.N + 1) / 2)
+            mit_val_post = mit_val_post + ((model.N + 1) / 2)
+        elif observable_label == "E1":
+            val = val + (1 / 2**1)
+            mit_val = mit_val + (1 / 2**1)
+            mit_val_post = mit_val_post + (1 / 2**1)
+        elif observable_label == "E2":
+            val = val + (1 / 2**2)
+            mit_val = mit_val + (1 / 2**2)
+            mit_val_post = mit_val_post + (1 / 2**2)
+
         return mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val
 
-    observables = [hamiltonian, q1, q2]
-    observables_label = ["Energy", "Q1", "Q2"]
+    observables_label = ["Energy", "Q1", "Q2", "E1", "E2", "Nonlocal Pauli"]
+    noiseless_val_list = [energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]
 
     results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless]]
-    for i, observable in enumerate(observables):
+    for i, observable_label in enumerate(observables_label):
         mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val = get_mit_value(
-            observable, observables_label[i], n_training_samples, noisy_state
+            observable_label, n_training_samples, noisy_state
         )
-        results.append([mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val])
-        print(observables_label[i])
+        
+        results.append([mit_val, mit_val_post, val, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
+        print(observable_label)
         print("  Mitigated: ", mit_val)
         print("  Mitigated post: ", mit_val_post)
         print("  Noisy: ", val)
+        print("  Noiseless: ", noiseless_val_list[i])
         print("  Optimal parameters: ", optimal_params)
         print("  Optimal parameters post: ", optimal_params_post)
 
