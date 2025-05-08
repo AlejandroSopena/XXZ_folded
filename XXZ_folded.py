@@ -1852,7 +1852,7 @@ class XXZ_folded:
         result = (pattern * ((self.N) // len(pattern) + 1))[:self.N]
         return result
 
-    def sample_circuit_quantinuum(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True): #it works without boundaries
+    def sample_circuit_quantinuum(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True, circ_to_quantinuum=True, optimization_level=3): #it works without boundaries
         
         if self.D != 0:
             if boundaries:
@@ -1890,7 +1890,8 @@ class XXZ_folded:
                 keep_aux = keep
 
         circ = self.circ_full
-        circ = self.circ_to_quantinuum(circ, measure_all=measure_all)
+        if circ_to_quantinuum:
+            circ = self.circ_to_quantinuum(circ, measure_all=measure_all)
 
 
         # from pytket.extensions.qiskit import AerStateBackend
@@ -1912,14 +1913,22 @@ class XXZ_folded:
 
         circ_x = circ.copy()
         for q in keep:
-            circ_x.H(q)
+            if compile:
+                circ_x.H(q)
+            else:
+                circ_x.PhasedX(0.5, 1.5, q)
+                circ_x.Rz(1, q)
         for j, q in enumerate(keep_aux):
             circ_x.Measure(q, j)
 
         circ_y = circ.copy()
         for q in keep:
-            circ_y.Sdg(q)
-            circ_y.H(q)
+            if compile:
+                circ_y.Sdg(q)
+                circ_y.H(q)
+            else:
+                circ_y.PhasedX(0.5, 0, q)
+                circ_y.Rz(0.5, q)
         for j, q in enumerate(keep_aux):
             circ_y.Measure(q, j)
 
@@ -1967,10 +1976,19 @@ class XXZ_folded:
             circ_zyyz = circ.copy()
             for j, q in enumerate(keep):
                 if string[j] != 'z':
-                    circ_zxxz.H(q) #measure x in zxxz
+                    if compile:
+                        circ_zxxz.H(q) #measure x in zxxz
+                    else:
+                        circ_zxxz.PhasedX(0.5, 1.5, q)
+                        circ_zxxz.Rz(1, q)
 
-                    circ_zyyz.Sdg(q) #measure y in zyyz instead of x
-                    circ_zyyz.H(q)
+                    if compile:
+                        circ_zyyz.Sdg(q) #measure y in zyyz instead of x
+                        circ_zyyz.H(q)
+                    else:
+                        circ_zyyz.PhasedX(0.5, 0, q)
+                        circ_zyyz.Rz(0.5, q)
+
             for j, q in enumerate(keep_aux):
                     circ_zxxz.Measure(q, j)
                     circ_zyyz.Measure(q, j)
@@ -1982,7 +2000,7 @@ class XXZ_folded:
 
         circs = [circ_z, circ_x, circ_y] + circ_x_list + circ_y_list
 
-        optimization_level = 3
+        #optimization_level = 3
         name_project = "XXZ_folded"
         results, compiled_circuits = compile_quantinuum(circs, name_project, optimization_level, nshots, device, compile, counts=False)
 

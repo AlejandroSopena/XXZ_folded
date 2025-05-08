@@ -12,7 +12,7 @@ def counts_to_qibo(counts):
         new_counts[new_key] = value
     return new_counts
 
-def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, compile=True, counts=False):
+def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, compile=True, counts=False, execute=True):
     #qnx.login_with_credentials()
 
     if device == 'local_noiseless_simulator':
@@ -23,8 +23,11 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
         else:
             compiled_circuits = circuits
 
-        results_handle = aer_state_b.process_circuits(compiled_circuits)
-        results = aer_state_b.get_results(results_handle)
+        if execute:
+            results_handle = aer_state_b.process_circuits(compiled_circuits)
+            results = aer_state_b.get_results(results_handle)
+        else:
+            results = compiled_circuits
     else:
         my_project_ref = qnx.projects.get_or_create(name=name_project)
 
@@ -36,21 +39,24 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
             compile_job = qnx.start_compile_job(circuits=circuit_refs, name=f"compilation_{name_project}_{datetime.now()}", 
                                                 optimisation_level=optimization_level, backend_config=backend_config, project=my_project_ref)
             print(compile_job.df())
-            qnx.jobs.wait_for(compile_job)
+            qnx.jobs.wait_for(compile_job, timeout=None)
 
             compiled_circuits_ref = [item.get_output() for item in qnx.jobs.results(compile_job)]
             compiled_circuits = [compiled_circuit_ref.download_circuit() for compiled_circuit_ref in compiled_circuits_ref]
         else:
             compiled_circuits_ref = circuit_refs
             compiled_circuits = circuits
-            
-        execute_job_ref = qnx.start_execute_job(circuits=compiled_circuits_ref, name=f"execution_{name_project}_{datetime.now()}", n_shots=[nshots] * len(compiled_circuits), 
-                                                backend_config=backend_config, project=my_project_ref)
-        print(execute_job_ref.df())
-        qnx.jobs.wait_for(execute_job_ref)
 
-        execute_job_result_refs = qnx.jobs.results(execute_job_ref)
-        results = [execute_job_result_refs[i].download_result() for i in range(len(execute_job_result_refs))]
+        if execute:            
+            execute_job_ref = qnx.start_execute_job(circuits=compiled_circuits_ref, name=f"execution_{name_project}_{datetime.now()}", n_shots=[nshots] * len(compiled_circuits), 
+                                                    backend_config=backend_config, project=my_project_ref)
+            print(execute_job_ref.df())
+            qnx.jobs.wait_for(execute_job_ref, timeout=None)
+
+            execute_job_result_refs = qnx.jobs.results(execute_job_ref)
+            results = [execute_job_result_refs[i].download_result() for i in range(len(execute_job_result_refs))]
+        else:
+            results = compiled_circuits
 
         
 
@@ -58,21 +64,24 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
     print(f' 1q gates:', [circ.n_1qb_gates() for circ in compiled_circuits])
     print(f' 2q gates:', [circ.n_2qb_gates() for circ in compiled_circuits])
 
-    if counts:
+    if execute and counts:
         counts_list = [result.get_counts() for result in results]
         qibo_counts = [counts_to_qibo(counts) for counts in counts_list]
         return qibo_counts, compiled_circuits
+    elif execute:
+        return results, compiled_circuits
     
-    return results, compiled_circuits
+    return compiled_circuits
 
-def circuits_zne_quantinuum(circuit, num_insertions):
+def circuits_zne_quantinuum(circuit, noise_levels):
+    # noise_levels must be odd 1,3,5,7 ---> depolarizing rate eps, incresed to noise_level*eps
     # 2*num_insertions + 1 = noise_levels
     from pytket import Circuit, OpType
-
+    num_insertions = (noise_levels - 1) // 2
     folded_circ = Circuit(circuit.n_qubits, circuit.n_bits)
     for gate in circuit.get_commands():
         folded_circ.add_gate(gate.op, gate.args)
-        if gate.op.type == OpType.ZZPhase:
+        if gate.op.type == OpType.ZZPhase or gate.op.type == OpType.CX:
             for _ in range(num_insertions):
                 folded_circ.add_gate(gate.op.dagger, gate.args)
                 folded_circ.add_gate(gate.op, gate.args)

@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 import time
 
-def _get_state(model, i, path, device, nshots, measure_all, error_detection, boundaries=False, layout=None, backend=None, compile=True):
+def _get_state_cdr(model, i, path, device, nshots, measure_all, error_detection, boundaries=False, layout=None, backend=None, compile=True):
     circuits = np.load(path+'/training_states/training_circuits.npy',allow_pickle=True)
     circuit = circuits[i]
     model.circ_full = circuit
@@ -54,6 +54,57 @@ def _get_state(model, i, path, device, nshots, measure_all, error_detection, bou
         counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
     training_state['noisy'] = [counts_result, compiled_circuits] 
     np.save(path+f'/training_states/states_{i}.npy', training_state)
+
+def _get_state_zne(model, i, path, device, nshots, measure_all, error_detection, boundaries=False, layout=None, backend=None, compile=False):
+    circuits = np.load(path+"/noise_states_zne/noise_circuits.npy", allow_pickle=True)
+    circuit = circuits[i]
+    model.circ_full = circuit
+    noise_state = {}
+    backend.set_precision('single')
+
+    # now compiling the circuit with optimization level 0   #CHANGE TO NOT COMPILE
+    counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
+        device, nshots, layout, boundaries=boundaries, measure_all=measure_all, compile=False, circ_to_quantinuum=False, optimization_level=0
+    )
+    new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
+    if measure_all:
+        counts_x = model.get_nsites_counts(counts_x1, postselect=False)
+        counts_y = model.get_nsites_counts(counts_y1, postselect=False)
+        counts_z = model.get_nsites_counts(counts_z1, postselect=False)
+        counts_zxxz_list = [
+            model.get_nsites_counts(counts, postselect=False)
+            for counts in counts_zxxz_list1
+        ]
+        counts_zyyz_list = [
+            model.get_nsites_counts(counts, postselect=False)
+            for counts in counts_zyyz_list1
+        ]
+    else:
+        counts_x = counts_x1
+        counts_y = counts_y1
+        counts_z = counts_z1
+        counts_zxxz_list = counts_zxxz_list1
+        counts_zyyz_list = counts_zyyz_list1
+
+    if measure_all and error_detection:
+        counts_x_post = model.get_nsites_counts(counts_x1, postselect=True)
+        counts_y_post = model.get_nsites_counts(counts_y1, postselect=True)
+        counts_z_post = model.get_nsites_counts(counts_z1, postselect=True)
+        counts_zxxz_post_list = [
+            model.get_nsites_counts(counts, postselect=True)
+            for counts in counts_zxxz_list1
+        ]
+        counts_zyyz_post_list = [
+            model.get_nsites_counts(counts, postselect=True)
+            for counts in counts_zyyz_list1
+        ]
+
+    if error_detection:
+        counts_result = [[counts_x, counts_x_post], [counts_y, counts_y_post], [counts_z, counts_z_post], [counts_zxxz_list, counts_zxxz_post_list], [counts_zyyz_list, counts_zyyz_post_list], new_indices_list]
+    else:
+        counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
+    noise_state['noisy'] = [counts_result, compiled_circuits] 
+    np.save(path+f'/noise_states_zne/states_{i}.npy', noise_state)
 
 
 # if __name__ == "__main__":
