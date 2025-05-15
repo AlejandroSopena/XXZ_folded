@@ -2067,7 +2067,7 @@ class XXZ_folded:
             for j in range(self.N-2):
                 xx_yy += Z(j+1)*Z(j+2)
             xx_yy += Z(0)*Z(1)
-        xx_yy = SymbolicHamiltonian(xx_yy)
+        xx_yy = SymbolicHamiltonian(xx_yy, backend=self.backend)
         xx = xx_yy.expectation_from_samples(counts_x)
         yy = xx_yy.expectation_from_samples(counts_y)
 
@@ -2081,7 +2081,7 @@ class XXZ_folded:
 
         for j in range(vals):
             zxxz_zyyz = Z(j)*Z(j+1)*Z(j+2)*Z(j+3)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz)
+            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
 
             circ_x = circ.copy()
             circ_x.add(gates.H(keep[j+1]))
@@ -2106,7 +2106,7 @@ class XXZ_folded:
 
         if boundaries is False:
             zxxz_zyyz = Z(0)*Z(1)*Z(2)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz)
+            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
 
             circ_x = circ.copy()
             circ_x.add(gates.H(keep[0]))
@@ -2130,7 +2130,7 @@ class XXZ_folded:
             zyyz += zxxz_zyyz.expectation_from_samples(counts_y)
 
             zxxz_zyyz = Z(self.N-3)*Z(self.N-2)*Z(self.N-1)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz)
+            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
 
             circ_x = circ.copy()
             circ_x.add(gates.H(keep[self.N-2]))
@@ -2205,37 +2205,7 @@ class XXZ_folded:
 
         return freqs
 
-    def sample_energy(self, counts_x, counts_y, new_indices_list, counts_zxxz_list, counts_zyyz_list, noise_model, layout, boundaries, backend=None):
-
-        if self.D != 0:
-            if boundaries:
-                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
-                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
-                else:
-                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
-            else:
-                if self.M == 1:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-                else:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-        else:
-            if boundaries:
-                raise ValueError(
-                    'Boundaries not implemented for D=0')
-            else:
-                keep = list(range(self.N))
-
-        if layout is not None:
-            keep = [layout[k] for k in keep]
-
-        circ = self.circ_full
-
-        if noise_model is not None:
-            circ = noise_model.apply(circ)
+    def sample_energy(self, counts_x, counts_y, new_indices_list, counts_zxxz_list, counts_zyyz_list, backend=None): # it only works without boundaries
 
         backend = _check_backend(backend)
  
@@ -2247,7 +2217,7 @@ class XXZ_folded:
         for j in range(self.N-2):
             xx_yy += Z(j+1)*Z(j+2)
         xx_yy += Z(0)*Z(1)
-        xx_yy = SymbolicHamiltonian(xx_yy)
+        xx_yy = SymbolicHamiltonian(xx_yy, backend=self.backend)
         xx = xx_yy.expectation_from_samples(counts_x)
         yy = xx_yy.expectation_from_samples(counts_y)
 
@@ -2268,7 +2238,7 @@ class XXZ_folded:
                     zxxz_zyyz = Z(0)*Z(1)*Z(2)*Z(3)
                     qubits = [j,j+1,j+2,j+3]
 
-                zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz)
+                zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
                 
                 counts_zxxz_j = self.trace_frequencies(counts_zxxz, qubits)
 

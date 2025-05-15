@@ -24,7 +24,7 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
             compiled_circuits = circuits
 
         if execute:
-            results_handle = aer_state_b.process_circuits(compiled_circuits)
+            results_handle = aer_state_b.process_circuits(compiled_circuits, n_shots=[nshots] * len(compiled_circuits))
             results = aer_state_b.get_results(results_handle)
         else:
             results = compiled_circuits

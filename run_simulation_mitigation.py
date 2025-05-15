@@ -20,7 +20,7 @@ from qibo.models.error_mitigation import sample_training_circuit_cdr
 from qibo.backends import _check_backend_and_local_state, construct_backend
 from qibo.symbols import I
 from qibo.hamiltonians import SymbolicHamiltonian
-from training_results_quantinuum import _get_state_cdr, _get_state_zne
+from training_results_quantinuum import _get_state_cdr, _get_state_zne, get_mit_value_cdr, get_mit_value_zne
 from utils_quantinuum import circuits_zne_quantinuum, compile_quantinuum
 from XXZ_folded import XXZ_folded
 import qnexus as qnx
@@ -51,7 +51,7 @@ def main():
         "--n_training_samples", type=int, default=50, help="Number of training samples"
     )
     parser.add_argument(
-        "--path", type=str, default="result", help="Path to save states"
+        "--path", type=str, default="result_test_", help="Path to save states"
     )
     parser.add_argument("--N", type=int, default=7, help="Number of qubits")
     parser.add_argument("--M", type=int, default=1, help="Number of magnons")
@@ -107,7 +107,7 @@ def main():
     device = args.device
     nshots = args.nshots
 
-    path = path + f"_N{N}_M{M}_D{D}"
+    path = path + f"{device}_N{N}_M{M}_D{D}"
     momentum_ints = np.linspace(1, N - M - D + 1, M).tolist()
     #momentum_ints = [i + 1 for i in range(M)]
 
@@ -214,7 +214,7 @@ def main():
         print("final layout", layout_final)
 
     qasm_code = qasm2.dumps(circ_qiskit1)
-    circ = Circuit.from_qasm(qasm_code)
+    circ_qibo = Circuit.from_qasm(qasm_code)
 
     print("gate types", circ.gate_types)
     print("depht", circ.depth)
@@ -234,8 +234,8 @@ def main():
     # qasm_code = qasm2.dumps(circ_qiskit)
     # circ = Circuit.from_qasm(qasm_code)
 
-    model.circ_full = circ
-    np.save(path + "/circuit.npy", circ)
+    model.circ_full = circ_qibo
+    np.save(path + "/circuit.npy", circ_qibo)
     ###################################
     layout_final = None
     state_noiseless = model.get_state(
@@ -296,13 +296,13 @@ def main():
 
     measure_all = True
     error_detection = True
-    mitigation_method = "ZNE"
+    mitigation_method = "CDR_ZNE"
 
-    if mitigation_method == "ZNE":
-        circ = model.circ_to_quantinuum(circ,measure_all=measure_all)    
+    if "ZNE" in mitigation_method:
+        circ_quantinuum = model.circ_to_quantinuum(circ_qibo,measure_all=measure_all)    
         optimization_level = 3
         name_project = "XXZ_folded"    
-        circ_compiled = compile_quantinuum([circ], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
+        circ_compiled = compile_quantinuum([circ_quantinuum], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
         compile = False
         circ_to_quantinuum = False
         model.circ_full = circ_compiled
@@ -347,9 +347,6 @@ def main():
         new_indices_list,
         counts_zxxz_list,
         counts_zyyz_list,
-        noise_model,
-        layout=layout_final,
-        boundaries=boundaries,
         backend=backend,
     )
 
@@ -386,9 +383,6 @@ def main():
             new_indices_list,
             counts_zxxz_post_list,
             counts_zyyz_post_list,
-            noise_model,
-            layout=layout_final,
-            boundaries=boundaries,
             backend=backend,
         )
 
@@ -401,7 +395,7 @@ def main():
         print("  Nonlocal Pauli sample post: ", nonlocal_pauli_sample_post)
 
     if error_detection:
-        counts_result = [[counts_x, counts_x_post], [counts_y, counts_y_post], [counts_z, counts_z_post], [counts_zxxz_list, counts_zxxz_post_list], [counts_zyyz_list, counts_zyyz_post_list], new_indices_list]
+        counts_result = [[counts_x, counts_x_post, counts_x1], [counts_y, counts_y_post, counts_y1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_list, counts_zxxz_post_list, counts_zxxz_list1], [counts_zyyz_list, counts_zyyz_post_list, counts_zyyz_list1], new_indices_list]
     else:
         counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
     np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
@@ -409,7 +403,7 @@ def main():
     if backend.platform == "cupy":
         cp.get_default_memory_pool().free_all_blocks()
 
-    circ = model.circ_full
+    #circ = model.circ_full
     
 
 
@@ -419,10 +413,10 @@ def main():
 
     model.backend = backend
     
-    if mitigation_method == "CDR":
+    if "CDR" in mitigation_method:
         # CDR         
         training_circuits = [
-            sample_training_circuit_cdr(circ, seed=local_state, backend=backend)
+            sample_training_circuit_cdr(circ_qibo, seed=local_state, backend=backend)
             for _ in range(n_training_samples)
         ]
 
@@ -431,7 +425,7 @@ def main():
         for i in range(n_training_samples):
             print("Training circuit: ", i)
             _get_state_cdr(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=True)
-    elif mitigation_method == "ZNE":
+    if "ZNE" in mitigation_method:
         # ZNE
         noise_levels = [3,5]
         # optimization_level = 3
@@ -439,7 +433,7 @@ def main():
         # circ = model.circ_to_quantinuum(circ,measure_all=measure_all)
         # circ_compiled = compile_quantinuum([circ], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
         # Circ already in quantinuum and compiled
-        noise_circuits_zne = [circuits_zne_quantinuum(circ, noise_level) for noise_level in noise_levels]
+        noise_circuits_zne = [circuits_zne_quantinuum(circ_compiled, noise_level) for noise_level in noise_levels]
         np.save(path + "/noise_states_zne/noise_circuits.npy", noise_circuits_zne)
 
         for i in range(len(noise_levels)):
@@ -452,369 +446,7 @@ def main():
     noisy_state = states["noisy"]
 
     
-    def get_mit_value_cdr(observable_label, n_training_samples, noisy_state):
-
-        if observable_label == "Energy":
-            observable = model.get_xxz_folded_hamiltonian(boundaries)
-        elif observable_label == "Q1":
-            observable = model.get_q1(boundaries)
-        elif observable_label == "Q2":
-            observable = model.get_q2(boundaries)
-        elif observable_label == "E1":
-            observable = model.get_ej(1, boundaries)
-        elif observable_label == "E2":
-            observable = model.get_ej(2, boundaries)
-        elif observable_label == "Nonlocal Pauli":
-            observable = model.get_nonlocal_pauli(3, boundaries)
-
-        train_val = {"noiseless": [], "noisy": []}
-        for i in range(n_training_samples):
-            training_state = np.load(
-                path + f"/training_states/states_{i}.npy", allow_pickle=True
-            ).item()
-            state = training_state["noiseless"]
-
-            val = observable.expectation(state)
-            if observable_label == "Q1":
-                val = val - (model.N / 2)
-            elif observable_label == "Q2":
-                val = val - ((model.N + 1) / 2)
-            elif observable_label == "E1":
-                val = val - (1 / 2**1)
-            elif observable_label == "E2":
-                val = val - (1 / 2**2)
-
-            if backend.platform == "cupy":
-                val = float(val.get())
-            train_val["noiseless"].append(val)
-
-            counts = training_state["noisy"][0]
-            counts_x, counts_x_post = counts[0]
-            counts_y, counts_y_post = counts[1]
-            counts_z, counts_z_post = counts[2]
-            counts_zxxz_list, counts_zxxz_post_list = counts[3]
-            counts_zyyz_list, counts_zyyz_post_list = counts[4]
-            new_indices_list = counts[5]
-
-            if observable_label == "Energy":
-                val = model.sample_energy(
-                    counts_x,
-                    counts_y,
-                    new_indices_list,
-                    counts_zxxz_list,
-                    counts_zyyz_list,
-                    noise_model,
-                    layout=layout_final,
-                    boundaries=boundaries,
-                    backend=backend,
-                    )
-                val_post = model.sample_energy(
-                    counts_x_post,
-                    counts_y_post,
-                    new_indices_list,
-                    counts_zxxz_post_list,
-                    counts_zyyz_post_list,
-                    noise_model,
-                    layout=layout_final,
-                    boundaries=boundaries,
-                    backend=backend,
-                    )
-            elif observable_label == "Q1":
-                val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
-                val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
-            elif observable_label == "Q2":
-                val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
-                val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
-            elif observable_label == "E1":
-                val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
-                val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
-            elif observable_label == "E2":
-                val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
-                val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
-            elif observable_label == "Nonlocal Pauli":
-                val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
-                val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
-
-            if backend.platform == "cupy":
-                val = float(val.get())
-                val_post = float(val_post.get())
-            train_val["noisy"].append([val, val_post])
-
-        nparams = 2
-
-        params = local_state.random(nparams)
-        f = lambda x, a, b: a * x + b
-        train_val["noisy"] = np.array(train_val["noisy"], object)
-        optimal_params = curve_fit(
-            f,
-            train_val["noisy"][:, 0],
-            train_val["noiseless"],
-            p0=params,
-        )[0]
-
-        optimal_params_post = curve_fit(
-            f,
-            train_val["noisy"][:, 1],
-            train_val["noiseless"],
-            p0=params,
-        )[0]
-
-
-        counts = noisy_state[0]
-        counts_x, counts_x_post = counts[0]
-        counts_y, counts_y_post = counts[1]
-        counts_z, counts_z_post = counts[2]
-        counts_zxxz_list, counts_zxxz_post_list = counts[3]
-        counts_zyyz_list, counts_zyyz_post_list = counts[4]
-        new_indices_list = counts[5]
-
-        if observable_label == "Energy":
-            val = model.sample_energy(
-                counts_x,
-                counts_y,
-                new_indices_list,
-                counts_zxxz_list,
-                counts_zyyz_list,
-                noise_model,
-                layout=layout_final,
-                boundaries=boundaries,
-                backend=backend,
-                )
-            val_post = model.sample_energy(
-                counts_x_post,
-                counts_y_post,
-                new_indices_list,
-                counts_zxxz_post_list,
-                counts_zyyz_post_list,
-                noise_model,
-                layout=layout_final,
-                boundaries=boundaries,
-                backend=backend,
-                )
-        elif observable_label == "Q1":
-            val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
-            val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
-        elif observable_label == "Q2":
-            val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
-            val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
-        elif observable_label == "E1":
-            val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
-            val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
-        elif observable_label == "E2":
-            val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
-            val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
-        elif observable_label == "Nonlocal Pauli":
-            val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
-            val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
-
-
-        if backend.platform == "cupy":
-            val = float(val.get())
-            val_post = float(val_post.get())
-        mit_val = f(val, *optimal_params)
-        mit_val_post = f(val_post, *optimal_params_post)
-
-        if observable_label == "Q1":
-            val = val + (model.N / 2)
-            val_post = val_post + (model.N / 2)
-            mit_val = mit_val + (model.N / 2)
-            mit_val_post = mit_val_post + (model.N / 2)
-        elif observable_label == "Q2":
-            val = val + ((model.N + 1) / 2)
-            val_post = val_post + ((model.N + 1) / 2)
-            mit_val = mit_val + ((model.N + 1) / 2)
-            mit_val_post = mit_val_post + ((model.N + 1) / 2)
-        elif observable_label == "E1":
-            val = val + (1 / 2**1)
-            val_post = val_post + (1 / 2**1)
-            mit_val = mit_val + (1 / 2**1)
-            mit_val_post = mit_val_post + (1 / 2**1)
-        elif observable_label == "E2":
-            val = val + (1 / 2**2)
-            val_post = val_post + (1 / 2**2)
-            mit_val = mit_val + (1 / 2**2)
-            mit_val_post = mit_val_post + (1 / 2**2)
-        # train_val contains the expectation values of the noiseless and noisy states without constants to learn directly the model.
-        # mit_val, mit_val_post, val, val_post are the mitigated and noisy values with the constants added.
-        return mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val
-    
-
-    def get_mit_value_zne(observable_label, noisy_state, noise_levels):
-
-        if observable_label == "Energy":
-            observable = model.get_xxz_folded_hamiltonian(boundaries)
-        elif observable_label == "Q1":
-            observable = model.get_q1(boundaries)
-        elif observable_label == "Q2":
-            observable = model.get_q2(boundaries)
-        elif observable_label == "E1":
-            observable = model.get_ej(1, boundaries)
-        elif observable_label == "E2":
-            observable = model.get_ej(2, boundaries)
-        elif observable_label == "Nonlocal Pauli":
-            observable = model.get_nonlocal_pauli(3, boundaries)
-
-        train_val = {"noisy": []}
-        for i in range(len(noise_levels)):
-            training_state = np.load(
-                path + f"/noise_states_zne/states_{i}.npy", allow_pickle=True
-            ).item()
-
-
-            counts = training_state["noisy"][0]
-            counts_x, counts_x_post = counts[0]
-            counts_y, counts_y_post = counts[1]
-            counts_z, counts_z_post = counts[2]
-            counts_zxxz_list, counts_zxxz_post_list = counts[3]
-            counts_zyyz_list, counts_zyyz_post_list = counts[4]
-            new_indices_list = counts[5]
-
-            if observable_label == "Energy":
-                val = model.sample_energy(
-                    counts_x,
-                    counts_y,
-                    new_indices_list,
-                    counts_zxxz_list,
-                    counts_zyyz_list,
-                    noise_model,
-                    layout=layout_final,
-                    boundaries=boundaries,
-                    backend=backend,
-                    )
-                val_post = model.sample_energy(
-                    counts_x_post,
-                    counts_y_post,
-                    new_indices_list,
-                    counts_zxxz_post_list,
-                    counts_zyyz_post_list,
-                    noise_model,
-                    layout=layout_final,
-                    boundaries=boundaries,
-                    backend=backend,
-                    )
-            elif observable_label == "Q1":
-                val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
-                val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
-            elif observable_label == "Q2":
-                val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
-                val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
-            elif observable_label == "E1":
-                val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
-                val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
-            elif observable_label == "E2":
-                val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
-                val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
-            elif observable_label == "Nonlocal Pauli":
-                val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
-                val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
-
-            if backend.platform == "cupy":
-                val = float(val.get())
-                val_post = float(val_post.get())
-            train_val["noisy"].append([val, val_post])
-
-
-        counts = noisy_state[0]
-        counts_x, counts_x_post = counts[0]
-        counts_y, counts_y_post = counts[1]
-        counts_z, counts_z_post = counts[2]
-        counts_zxxz_list, counts_zxxz_post_list = counts[3]
-        counts_zyyz_list, counts_zyyz_post_list = counts[4]
-        new_indices_list = counts[5]
-
-        if observable_label == "Energy":
-            val = model.sample_energy(
-                counts_x,
-                counts_y,
-                new_indices_list,
-                counts_zxxz_list,
-                counts_zyyz_list,
-                noise_model,
-                layout=layout_final,
-                boundaries=boundaries,
-                backend=backend,
-                )
-            val_post = model.sample_energy(
-                counts_x_post,
-                counts_y_post,
-                new_indices_list,
-                counts_zxxz_post_list,
-                counts_zyyz_post_list,
-                noise_model,
-                layout=layout_final,
-                boundaries=boundaries,
-                backend=backend,
-                )
-        elif observable_label == "Q1":
-            val = model.sample_q1(counts_z, boundaries=boundaries) - (model.N / 2)
-            val_post = model.sample_q1(counts_z_post, boundaries=boundaries) - (model.N / 2)
-        elif observable_label == "Q2":
-            val = model.sample_q2(counts_z, boundaries=boundaries) - ((model.N + 1) / 2)
-            val_post = model.sample_q2(counts_z_post, boundaries=boundaries) - ((model.N + 1) / 2)
-        elif observable_label == "E1":
-            val = model.sample_ej(1, counts_z, boundaries=boundaries) - (1 / 2**1)
-            val_post = model.sample_ej(1, counts_z_post, boundaries=boundaries) - (1 / 2**1)
-        elif observable_label == "E2":
-            val = model.sample_ej(2, counts_z, boundaries=boundaries) - (1 / 2**2)
-            val_post = model.sample_ej(2, counts_z_post, boundaries=boundaries) - (1 / 2**2)
-        elif observable_label == "Nonlocal Pauli":
-            val = model.sample_nonlocal_pauli(3, counts_z, boundaries=boundaries)
-            val_post = model.sample_nonlocal_pauli(3, counts_z_post, boundaries=boundaries)
-
-
-        if backend.platform == "cupy":
-            val = float(val.get())
-            val_post = float(val_post.get())
-
-
-        nparams = 2
-        eps = 9e-4
-
-        params = local_state.random(nparams)
-        f = lambda x, a, b: a * x + b
-        train_val["noisy"] = np.array(train_val["noisy"], object)
-        optimal_params = curve_fit(
-            f,
-            np.array([1]+noise_levels)*eps,
-            [val]+list(train_val["noisy"][:, 0]),
-            p0=params,
-        )[0]
-
-        optimal_params_post = curve_fit(
-            f,
-            np.array([1]+noise_levels)*eps,
-            [val_post]+list(train_val["noisy"][:, 1]),
-            p0=params,
-        )[0]
-
-        mit_val = f(0, *optimal_params)
-        mit_val_post = f(0, *optimal_params_post)
-
-        if observable_label == "Q1":
-            val = val + (model.N / 2)
-            val_post = val_post + (model.N / 2)
-            mit_val = mit_val + (model.N / 2)
-            mit_val_post = mit_val_post + (model.N / 2)
-        elif observable_label == "Q2":
-            val = val + ((model.N + 1) / 2)
-            val_post = val_post + ((model.N + 1) / 2)
-            mit_val = mit_val + ((model.N + 1) / 2)
-            mit_val_post = mit_val_post + ((model.N + 1) / 2)
-        elif observable_label == "E1":
-            val = val + (1 / 2**1)
-            val_post = val_post + (1 / 2**1)
-            mit_val = mit_val + (1 / 2**1)
-            mit_val_post = mit_val_post + (1 / 2**1)
-        elif observable_label == "E2":
-            val = val + (1 / 2**2)
-            val_post = val_post + (1 / 2**2)
-            mit_val = mit_val + (1 / 2**2)
-            mit_val_post = mit_val_post + (1 / 2**2)
-        # train_val contains the expectation values of the noiseless and noisy states without constants to learn directly the model.
-        # mit_val, mit_val_post, val, val_post are the mitigated and noisy values with the constants added.
-        return mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val
-
-
+   
 
 
 
@@ -822,31 +454,56 @@ def main():
     noiseless_val_list = [energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]
 
     results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]]
+    if "CDR" in mitigation_method:
+        results_cdr = results.copy()
+    if "ZNE" in mitigation_method:
+        results_zne = results.copy()
     for i, observable_label in enumerate(observables_label):
-        if mitigation_method == "CDR":
+        if "CDR" in mitigation_method:
+            print("CDR")
+            # mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
+            #     observable_label, n_training_samples, noisy_state
+            # )
             mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
-                observable_label, n_training_samples, noisy_state
+                model, observable_label, n_training_samples, noisy_state, boundaries, path, backend, local_state
             )
-        elif mitigation_method == "ZNE":
+            results_cdr.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
+            print(observable_label)
+            print("  Mitigated: ", mit_val)
+            print("  Mitigated post: ", mit_val_post)
+            print("  Noisy: ", val)
+            print("  Noisy post: ", val_post)
+            print("  Noiseless: ", noiseless_val_list[i])
+            print("  Optimal parameters: ", optimal_params)
+            print("  Optimal parameters post: ", optimal_params_post)
+            print("  Noise circuit values: ", train_val) 
+        if "ZNE" in mitigation_method:
+            print("ZNE")
+            # mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_zne(
+            #     observable_label, noisy_state, noise_levels
+            # )
             mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_zne(
-                observable_label, noisy_state, noise_levels
-            )
-        
-        results.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
-        print(observable_label)
-        print("  Mitigated: ", mit_val)
-        print("  Mitigated post: ", mit_val_post)
-        print("  Noisy: ", val)
-        print("  Noisy post: ", val_post)
-        print("  Noiseless: ", noiseless_val_list[i])
-        print("  Optimal parameters: ", optimal_params)
-        print("  Optimal parameters post: ", optimal_params_post)
-        print("  Noise circuit values: ", train_val) 
+                model, observable_label, noise_levels, noisy_state, boundaries, path, backend, local_state
+            )           
+            results_zne.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
+            print(observable_label)
+            print("  Mitigated: ", mit_val)
+            print("  Mitigated post: ", mit_val_post)
+            print("  Noisy: ", val)
+            print("  Noisy post: ", val_post)
+            print("  Noiseless: ", noiseless_val_list[i])
+            print("  Optimal parameters: ", optimal_params)
+            print("  Optimal parameters post: ", optimal_params_post)
+            print("  Noise circuit values: ", train_val) 
         
 
-    results = np.array(results, object)
-
-    np.save(path + "/mitigated_values.npy", results, allow_pickle=True)
+        
+    if "CDR" in mitigation_method:
+        results_cdr = np.array(results_cdr, object)
+        np.save(path + f"/mitigated_values_CDR.npy", results_cdr, allow_pickle=True)
+    if "ZNE" in mitigation_method:
+        results_zne = np.array(results_zne, object)
+        np.save(path + f"/mitigated_values_ZNE.npy", results_zne, allow_pickle=True)
 
 
 if __name__ == "__main__":
