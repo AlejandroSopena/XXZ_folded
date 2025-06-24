@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sc
 from scipy.optimize import basinhopping
 
 from qibo import gates
@@ -53,7 +54,7 @@ class XXZ_free_open_model:
         return min(n+1,2*self.nmagnons)
 
     def choose(self,n, m):
-        return np.math.factorial(n)/(np.math.factorial(m)*np.math.factorial(n-m))
+        return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
 
     def _get_index(self, r):
         def gen_l(l,j):

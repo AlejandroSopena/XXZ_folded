@@ -306,6 +306,7 @@ def main():
         compile = False
         circ_to_quantinuum = False
         model.circ_full = circ_compiled
+        np.save(path + "/circuit_compiled.npy", circ_compiled)
 
     counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
         device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
