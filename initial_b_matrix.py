@@ -134,7 +134,7 @@ class XXZ_free_open_model:
 
     def Ark(self,r,k):
         def choose(n, m):
-            return np.math.factorial(n)/(np.math.factorial(m)*np.math.factorial(n-m))
+            return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
         rows = int(choose(self.m_k(k), r))
         cols = int(choose(self.m_k(k), r))
         A = np.zeros((rows,cols),complex)

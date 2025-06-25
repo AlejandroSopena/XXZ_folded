@@ -73,18 +73,3 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
     
     return compiled_circuits
 
-def circuits_zne_quantinuum(circuit, noise_levels):
-    # noise_levels must be odd 1,3,5,7 ---> depolarizing rate eps, incresed to noise_level*eps
-    # 2*num_insertions + 1 = noise_levels
-    from pytket import Circuit, OpType
-    num_insertions = (noise_levels - 1) // 2
-    folded_circ = Circuit(circuit.n_qubits, circuit.n_bits)
-    for gate in circuit.get_commands():
-        folded_circ.add_gate(gate.op, gate.args)
-        if gate.op.type == OpType.ZZPhase or gate.op.type == OpType.CX:
-            for _ in range(num_insertions):
-                folded_circ.add_gate(gate.op.dagger, gate.args)
-                folded_circ.add_gate(gate.op, gate.args)
-
-    return folded_circ
-

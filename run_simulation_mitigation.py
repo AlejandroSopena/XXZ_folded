@@ -20,8 +20,8 @@ from qibo.models.error_mitigation import sample_training_circuit_cdr
 from qibo.backends import _check_backend_and_local_state, construct_backend
 from qibo.symbols import I
 from qibo.hamiltonians import SymbolicHamiltonian
-from training_results_quantinuum import _get_state_cdr, _get_state_zne, get_mit_value_cdr, get_mit_value_zne
-from utils_quantinuum import circuits_zne_quantinuum, compile_quantinuum
+from training_results_quantinuum import _get_state_cdr, get_mit_value_cdr
+from utils_quantinuum import compile_quantinuum
 from XXZ_folded import XXZ_folded
 import qnexus as qnx
 #qnx.login_with_credentials()
@@ -298,16 +298,17 @@ def main():
     error_detection = True
     mitigation_method = "CDR_ZNE"
 
-    if "ZNE" in mitigation_method:
-        circ_quantinuum = model.circ_to_quantinuum(circ_qibo,measure_all=measure_all)    
-        optimization_level = 3
-        name_project = "XXZ_folded"    
-        circ_compiled = compile_quantinuum([circ_quantinuum], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
-        compile = False
-        circ_to_quantinuum = False
-        model.circ_full = circ_compiled
-        np.save(path + "/circuit_compiled.npy", circ_compiled)
-
+    # if "ZNE" in mitigation_method:
+    #     circ_quantinuum = model.circ_to_quantinuum(circ_qibo,measure_all=measure_all)    
+    #     optimization_level = 3
+    #     name_project = "XXZ_folded"    
+    #     circ_compiled = compile_quantinuum([circ_quantinuum], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
+    #     compile = False
+    #     circ_to_quantinuum = False
+    #     model.circ_full = circ_compiled
+    #     np.save(path + "/circuit_compiled.npy", circ_compiled)
+    compile = True
+    circ_to_quantinuum = True
     counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
         device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
     )
@@ -426,27 +427,11 @@ def main():
         for i in range(n_training_samples):
             print("Training circuit: ", i)
             _get_state_cdr(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=True)
-    if "ZNE" in mitigation_method:
-        # ZNE
-        noise_levels = [3,5]
-        # optimization_level = 3
-        # name_project = "XXZ_folded"
-        # circ = model.circ_to_quantinuum(circ,measure_all=measure_all)
-        # circ_compiled = compile_quantinuum([circ], name_project, optimization_level, nshots, device, compile=True, counts=False, execute=False)[0]
-        # Circ already in quantinuum and compiled
-        noise_circuits_zne = [circuits_zne_quantinuum(circ_compiled, noise_level) for noise_level in noise_levels]
-        np.save(path + "/noise_states_zne/noise_circuits.npy", noise_circuits_zne)
-
-        for i in range(len(noise_levels)):
-            print("Noise circuit: ", i)
-            _get_state_zne(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=False)
 
 
     
     states = np.load(path + "/state.npy", allow_pickle=True).item()
-    noisy_state = states["noisy"]
-
-    
+    noisy_state = states["noisy"]   
    
 
 
@@ -457,8 +442,7 @@ def main():
     results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]]
     if "CDR" in mitigation_method:
         results_cdr = results.copy()
-    if "ZNE" in mitigation_method:
-        results_zne = results.copy()
+
     for i, observable_label in enumerate(observables_label):
         if "CDR" in mitigation_method:
             print("CDR")
@@ -478,33 +462,11 @@ def main():
             print("  Optimal parameters: ", optimal_params)
             print("  Optimal parameters post: ", optimal_params_post)
             print("  Noise circuit values: ", train_val) 
-        if "ZNE" in mitigation_method:
-            print("ZNE")
-            # mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_zne(
-            #     observable_label, noisy_state, noise_levels
-            # )
-            mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_zne(
-                model, observable_label, noise_levels, noisy_state, boundaries, path, backend, local_state
-            )           
-            results_zne.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
-            print(observable_label)
-            print("  Mitigated: ", mit_val)
-            print("  Mitigated post: ", mit_val_post)
-            print("  Noisy: ", val)
-            print("  Noisy post: ", val_post)
-            print("  Noiseless: ", noiseless_val_list[i])
-            print("  Optimal parameters: ", optimal_params)
-            print("  Optimal parameters post: ", optimal_params_post)
-            print("  Noise circuit values: ", train_val) 
-        
 
         
     if "CDR" in mitigation_method:
         results_cdr = np.array(results_cdr, object)
         np.save(path + f"/mitigated_values_CDR.npy", results_cdr, allow_pickle=True)
-    if "ZNE" in mitigation_method:
-        results_zne = np.array(results_zne, object)
-        np.save(path + f"/mitigated_values_ZNE.npy", results_zne, allow_pickle=True)
 
 
 if __name__ == "__main__":
