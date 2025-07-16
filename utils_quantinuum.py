@@ -15,7 +15,7 @@ def counts_to_qibo(counts):
 def compile_quantinuum(circuits, name_project, optimization_level, nshots, device, compile=True, counts=False, execute=True):
     #qnx.login_with_credentials()
 
-    if device == 'local_noiseless_simulator':
+    if device == 'quantinuum.local_noiseless_simulator':
         from pytket.extensions.qiskit import AerBackend
         aer_state_b = AerBackend()
         if compile:
@@ -29,6 +29,7 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
         else:
             results = compiled_circuits
     else:
+        device = device[11::]  # quantinuum.local_noiseless_simulator -> local_noiseless_simulator
         my_project_ref = qnx.projects.get_or_create(name=name_project)
 
         backend_config = qnx.QuantinuumConfig(device_name=device)

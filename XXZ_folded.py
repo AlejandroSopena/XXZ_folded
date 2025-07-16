@@ -2,13 +2,15 @@ import numpy as np
 
 from qibo import gates, Circuit
 from qibo.symbols import X, Y, Z
-from qibo.hamiltonians import SymbolicHamiltonian
+from qibo.hamiltonians import SymbolicHamiltonian, Hamiltonian
 from qibo.quantum_info import fidelity, partial_trace
 from qibo.backends import _check_backend, construct_backend
 
 from initial_b_matrix import get_b_circuit
 from XX_model import XX_model
 from utils_quantinuum import counts_to_qibo, compile_quantinuum
+from utils_ionq import compile_ionq
+from qibo.symbols import Symbol
 
 
 def partial_trace_vector(state, keep_indices):
@@ -1491,13 +1493,16 @@ class XXZ_folded:
 
         return obs_expectation
 
-    def circ_to_qiskit(self, circ):
+    def circ_to_qiskit(self, circ, measure_all=False):
         from qiskit import QuantumCircuit
         from qiskit.circuit.library import XGate, SwapGate, CXGate, UnitaryGate, CZGate
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
-        circ_qiskit = QuantumCircuit(circ.nqubits, self.N)
+        if measure_all:
+            circ_qiskit = QuantumCircuit(circ.nqubits, circ.nqubits)
+        else:
+            circ_qiskit = QuantumCircuit(circ.nqubits, self.N)
         for g in gate_list:
             control_qubits = g.control_qubits[::-1]
             target_qubits = g.target_qubits[::-1]
@@ -1834,7 +1839,15 @@ class XXZ_folded:
 
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
     
-    def get_nsites_counts(self, counts, postselect=True):
+    def count_transitions(binary_string):
+        count = 0
+        for i in range(1, len(binary_string)):
+            if (binary_string[i-1] == '0' and binary_string[i] == '1') or \
+            (binary_string[i-1] == '1' and binary_string[i] == '0'):
+                count += 1
+        return count
+
+    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False):
         # only for D=0
         from collections import Counter
         new_counts = Counter()
@@ -1844,6 +1857,13 @@ class XXZ_folded:
                     new_counts[key[0:self.N]] = value
             else:
                 new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+
+        if postselect_aux:
+            new_counts2 = Counter()
+            for key, value in new_counts.items():
+                if self.count_transitions(key) == int(2*self.M):
+                    new_counts2[key] = value
+            new_counts = new_counts2
 
         return new_counts
     
@@ -2025,8 +2045,8 @@ class XXZ_folded:
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list], compiled_circuits 
     
 
-    def sample_energy_old(self, counts_x, counts_y, nshots, noise_model, layout, boundaries, backend=None):
-
+    def sample_circuit_quantinuum_postq2(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True, circ_to_quantinuum=True, optimization_level=3): #it works without boundaries
+        
         if self.D != 0:
             if boundaries:
                 if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
@@ -2048,114 +2068,319 @@ class XXZ_folded:
                     'Boundaries not implemented for D=0')
             else:
                 keep = list(range(self.N))
+                aux = list(range(self.N,self.N+self.M+1))
+                if measure_all:
+                    keep_aux = keep + aux
+                else:
+                    keep_aux = keep
 
         if layout is not None:
             keep = [layout[k] for k in keep]
+            aux = [layout[k] for k in aux]
+            if self.D == 0 and measure_all:
+                keep_aux = keep + aux
+            else:
+                keep_aux = keep
 
         circ = self.circ_full
+        if circ_to_quantinuum:
+            circ = self.circ_to_quantinuum(circ, measure_all=measure_all)
 
-        if noise_model is not None:
-            circ = noise_model.apply(circ)
 
-        backend = _check_backend(backend)
+        # from pytket.extensions.qiskit import AerStateBackend
+        # aer_state_b = AerStateBackend()
+        # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
 
-        xx_yy = 0
-        if boundaries:
-            for j in range(self.N-1):
-                xx_yy += Z(j+1)*Z(j+2)
-        else:
-            for j in range(self.N-2):
-                xx_yy += Z(j+1)*Z(j+2)
-            xx_yy += Z(0)*Z(1)
-        xx_yy = SymbolicHamiltonian(xx_yy, backend=self.backend)
-        xx = xx_yy.expectation_from_samples(counts_x)
-        yy = xx_yy.expectation_from_samples(counts_y)
+        # state_handle = aer_state_b.process_circuit(circ_quantinuum)
+        # statevector = aer_state_b.get_result(state_handle).get_state()
+        # circ.density_matrix = False
+        # from qibo.backends import construct_backend
+        # backend = construct_backend("qibojit",platform='numba')
+        # from qibo.quantum_info import fidelity
+        # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
 
-        zxxz = 0
-        zyyz = 0
+        circ_z = circ.copy()
+        circ_z.measure_all
+        for j, q in enumerate(keep_aux):
+            circ_z.Measure(q, j)
 
-        if boundaries:
-            vals = self.N-1
-        else:
-            vals = self.N-3
+        from pytket.circuit import Unitary2qBox
 
-        for j in range(vals):
-            zxxz_zyyz = Z(j)*Z(j+1)*Z(j+2)*Z(j+3)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
+        rotation_gate = gates.GIVENS(0,1,np.pi/4)
+        matrix = rotation_gate.matrix(self.backend)
+        g1 = Unitary2qBox
+        circ_x_y_even = circ.copy()
+        circ_x_y_odd = circ.copy()
+        for index, q in enumerate(keep[0:-1]):
+            if index % 2 == 0:
+                #circ_x_y_even.add(rotation_gate.on_qubits({0:keep[index],1:keep[index+1]}))
+                circ_x_y_even.add_gate(g1(matrix), [keep[index], keep[index+1]])
+            else:
+                #circ_x_y_odd.add(rotation_gate.on_qubits({0:keep[index],1:keep[index+1]}))
+                circ_x_y_odd.add_gate(g1(matrix), [keep[index], keep[index+1]])
+        for j, q in enumerate(keep_aux):
+            circ_x_y_even.Measure(q, j)
+            circ_x_y_odd.Measure(q, j)
+
+        # circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
+        # circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
+        # circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
+        # print('depth quantinuum', circ_z.depth())
+        # print('1q gates quantinuum', circ_z.n_1qb_gates())
+        # print('2q gates quantinuum', circ_z.n_2qb_gates())
+
+            
+        num_iter = 3 #int((self.N-self.N%3)/3) - 1
+
+        output_list = []
+        new_indices_list = []
+        for i in range(num_iter):
+            if i == 0:
+                output = self.create_repeated_string()
+            else:
+                output = 'x'+output[:self.N-1]
+            indices = [i for i, char in enumerate(output) if char == 'z']
+            new_indices = []
+            for j, index in enumerate(indices):
+                if index != 2 and index != self.N - 3:
+                    if output[indices[j]:indices[j]+4] == 'zxxz':
+                        new_indices.append(index)
+                elif index == 2:
+                    if output[0:indices[j]+1] == 'xxz':
+                        new_indices.append('left_b')
+                        new_indices.append(index)
+                elif index == self.N - 3:
+                    if output[indices[j]:] == 'zxx':
+                        #new_indices.append(index)
+                        new_indices.append('right_b')
+
+            output_list.append(output)
+            new_indices_list.append(new_indices)
+
+        circ_xy_list = []
+        for string in output_list:
+            circ_zxxz_zyyz = circ.copy()
+            for j, q in enumerate(keep[0:-1]):
+                if string[j] == 'x' and string[j+1] == 'x':
+                    #circ_zxxz_zyyz.add(rotation_gate.on_qubits({0:keep[j],1:keep[j+1]}))    
+                    circ_zxxz_zyyz.add_gate(g1(matrix), [keep[j], keep[j+1]])
+            for j, q in enumerate(keep_aux):
+                    circ_zxxz_zyyz.Measure(q, j)
+
+            circ_xy_list.append(circ_zxxz_zyyz)
+
+
+        # Execute all circuits in one batch
+
+        circs = [circ_z, circ_x_y_even, circ_x_y_odd] + circ_xy_list 
+
+        #optimization_level = 3
+        name_project = "XXZ_folded"
+        results, compiled_circuits = compile_quantinuum(circs, name_project, optimization_level, nshots, device, compile, counts=False)
+
+        counts_z = results[0].get_counts()
+        counts_x_y_even = results[1].get_counts()
+        counts_x_y_odd = results[2].get_counts()
+
+        counts_z = counts_to_qibo(counts_z)
+        counts_x_y_even = counts_to_qibo(counts_x_y_even)
+        counts_x_y_odd = counts_to_qibo(counts_x_y_odd)
+            
+        counts_zxxz_zyyz_list = []
+        for i in range(num_iter):
+            counts_zxxz_zyyz = results[i+3].get_counts()
+            counts_zxxz_zyyz = counts_to_qibo(counts_zxxz_zyyz)
+            counts_zxxz_zyyz_list.append(counts_zxxz_zyyz )
+
+        return counts_x_y_even, counts_x_y_odd, counts_z, [new_indices_list, counts_zxxz_zyyz_list], compiled_circuits 
+    
+        
+    def sample_circuit_ionq(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=False, circ_to_ionq=True, optimization_level=3): #it works without boundaries
+            
+            if self.D != 0:
+                if boundaries:
+                    if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+                        keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                            self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+                    else:
+                        keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                            self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+                else:
+                    if self.M == 1:
+                        keep = [2*j+1 for j in range(self.N-self.D)] + \
+                            [2*(self.N-self.D)+i for i in range(self.D)]
+                    else:
+                        keep = [2*j+1 for j in range(self.N-self.D)] + \
+                            [2*(self.N-self.D)+i for i in range(self.D)]
+            else:
+                if boundaries:
+                    raise ValueError(
+                        'Boundaries not implemented for D=0')
+                else:
+                    keep = list(range(self.N))
+                    aux = list(range(self.N,self.N+self.M+1))
+                    if measure_all:
+                        keep_aux = keep + aux
+                    else:
+                        keep_aux = keep
+
+            if layout is not None:
+                keep = [layout[k] for k in keep]
+                aux = [layout[k] for k in aux]
+                if self.D == 0 and measure_all:
+                    keep_aux = keep + aux
+                else:
+                    keep_aux = keep
+
+            circ = self.circ_full
+            if circ_to_ionq:
+                circ = self.circ_to_qiskit(circ, measure_all=measure_all)
+
+
+            # from pytket.extensions.qiskit import AerStateBackend
+            # aer_state_b = AerStateBackend()
+            # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
+
+            # state_handle = aer_state_b.process_circuit(circ_quantinuum)
+            # statevector = aer_state_b.get_result(state_handle).get_state()
+            # circ.density_matrix = False
+            # from qibo.backends import construct_backend
+            # backend = construct_backend("qibojit",platform='numba')
+            # from qibo.quantum_info import fidelity
+            # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
+            from qiskit_ionq import GPIGate, GPI2Gate, MSGate
+
+            circ_z = circ.copy()
+            for j, q in enumerate(keep_aux):
+                circ_z.measure(q, j)
 
             circ_x = circ.copy()
-            circ_x.add(gates.H(keep[j+1]))
-            circ_x.add(gates.H(keep[j+2]))
-            circ_x.add(gates.M(*keep))
+            for q in keep:
+                circ_x.h(q)
+                if compile:
+                    circ_x.h(q)
+                # else:
+                #     circ_x.append(GPI2Gate(0),[q])
+                #     circ_x.append(GPIGate(-0.125),[q])
+                #     circ_x.append(GPI2Gate(0.5),[q])
+            for j, q in enumerate(keep_aux):
+                circ_x.measure(q, j)
 
             circ_y = circ.copy()
-            circ_y.add(gates.SDG(keep[j+1]))
-            circ_y.add(gates.H(keep[j+1]))
-            circ_y.add(gates.SDG(keep[j+2]))
-            circ_y.add(gates.H(keep[j+2]))
-            circ_y.add(gates.M(*keep))
+            for q in keep:
+                circ_y.sdg(q)
+                circ_y.h(q)
+                # if compile:
+                #     circ_y.sdg(q)
+                #     circ_y.h(q)
+                # else:
+                #     circ_y.append(GPI2Gate(0.75),[q])
+                #     circ_y.append(GPIGate(0.125),[q])
+                #     circ_y.append(GPI2Gate(0.5),[q])
+                #     circ_y.append(GPI2Gate(0),[q])
+                #     circ_y.append(GPIGate(-0.125),[q])
+                #     circ_y.append(GPI2Gate(0.5),[q])
+            for j, q in enumerate(keep_aux):
+                circ_y.measure(q, j)
 
-            result_x = backend.execute_circuit(circ_x, nshots=nshots)
-            counts_x = result_x.frequencies()
+                    
+            # circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
+            # circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
+            # circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
+            # print('depth quantinuum', circ_z.depth())
+            # print('1q gates quantinuum', circ_z.n_1qb_gates())
+            # print('2q gates quantinuum', circ_z.n_2qb_gates())
 
-            result_y = backend.execute_circuit(circ_y, nshots=nshots)
-            counts_y = result_y.frequencies()
+                
+            num_iter = 3 #int((self.N-self.N%3)/3) - 1
 
-            zxxz += zxxz_zyyz.expectation_from_samples(counts_x)
-            zyyz += zxxz_zyyz.expectation_from_samples(counts_y)
+            output_list = []
+            new_indices_list = []
+            for i in range(num_iter):
+                if i == 0:
+                    output = self.create_repeated_string()
+                else:
+                    output = 'x'+output[:self.N-1]
+                indices = [i for i, char in enumerate(output) if char == 'z']
+                new_indices = []
+                for j, index in enumerate(indices):
+                    if index != 2 and index != self.N - 3:
+                        if output[indices[j]:indices[j]+4] == 'zxxz':
+                            new_indices.append(index)
+                    elif index == 2:
+                        if output[0:indices[j]+1] == 'xxz':
+                            new_indices.append('left_b')
+                            new_indices.append(index)
+                    elif index == self.N - 3:
+                        if output[indices[j]:] == 'zxx':
+                            #new_indices.append(index)
+                            new_indices.append('right_b')
 
-        if boundaries is False:
-            zxxz_zyyz = Z(0)*Z(1)*Z(2)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
+                output_list.append(output)
+                new_indices_list.append(new_indices)
 
-            circ_x = circ.copy()
-            circ_x.add(gates.H(keep[0]))
-            circ_x.add(gates.H(keep[1]))
-            circ_x.add(gates.M(*keep))
+            circ_x_list = []
+            circ_y_list = []
 
-            circ_y = circ.copy()
-            circ_y.add(gates.SDG(keep[0]))
-            circ_y.add(gates.H(keep[0]))
-            circ_y.add(gates.SDG(keep[1]))
-            circ_y.add(gates.H(keep[1]))
-            circ_y.add(gates.M(*keep))
+            for string in output_list:
+                circ_zxxz = circ.copy()
+                circ_zyyz = circ.copy()
+                for j, q in enumerate(keep):
+                    if string[j] != 'z':
+                        if compile:
+                            circ_zxxz.h(q) #measure x in zxxz
+                        else:
+                            circ_zxxz.append(GPI2Gate(0),[q])
+                            circ_zxxz.append(GPIGate(-0.125),[q])
+                            circ_zxxz.append(GPI2Gate(0.5),[q])
 
-            result_x = backend.execute_circuit(circ_x, nshots=nshots)
-            counts_x = result_x.frequencies()
+                        if compile:
+                            circ_zyyz.sdg(q) #measure y in zyyz instead of x
+                            circ_zyyz.h(q)
+                        else:
+                            circ_zyyz.PhasedX(0.5, 0, q)
+                            circ_zyyz.append(GPI2Gate(0.75),[q])
+                            circ_zyyz.append(GPIGate(0.125),[q])
+                            circ_zyyz.append(GPI2Gate(0.5),[q])
+                            circ_zyyz.append(GPI2Gate(0),[q])
+                            circ_zyyz.append(GPIGate(-0.125),[q])
+                            circ_zyyz.append(GPI2Gate(0.5),[q])
 
-            result_y = backend.execute_circuit(circ_y, nshots=nshots)
-            counts_y = result_y.frequencies()
+                for j, q in enumerate(keep_aux):
+                        circ_zxxz.measure(q, j)
+                        circ_zyyz.measure(q, j)
+                circ_x_list.append(circ_zxxz)
+                circ_y_list.append(circ_zyyz)
 
-            zxxz += zxxz_zyyz.expectation_from_samples(counts_x)
-            zyyz += zxxz_zyyz.expectation_from_samples(counts_y)
 
-            zxxz_zyyz = Z(self.N-3)*Z(self.N-2)*Z(self.N-1)
-            zxxz_zyyz = SymbolicHamiltonian(zxxz_zyyz, backend=self.backend)
+            # Execute all circuits in one batch
 
-            circ_x = circ.copy()
-            circ_x.add(gates.H(keep[self.N-2]))
-            circ_x.add(gates.H(keep[self.N-1]))
-            circ_x.add(gates.M(*keep))
+            circs = [circ_z, circ_x, circ_y] + circ_x_list + circ_y_list
 
-            circ_y = circ.copy()
-            circ_y.add(gates.SDG(keep[self.N-2]))
-            circ_y.add(gates.H(keep[self.N-2]))
-            circ_y.add(gates.SDG(keep[self.N-1]))
-            circ_y.add(gates.H(keep[self.N-1]))
-            circ_y.add(gates.M(*keep))
+            #optimization_level = 3
+            name_project = "XXZ_folded"
+            results, compiled_circuits = compile_ionq(circs, optimization_level, nshots, device, compile, counts=False)
 
-            result_x = backend.execute_circuit(circ_x, nshots=nshots)
-            counts_x = result_x.frequencies()
+            counts_z = results[0].get_counts()
+            counts_x = results[1].get_counts()
+            counts_y = results[2].get_counts()
 
-            result_y = backend.execute_circuit(circ_y, nshots=nshots)
-            counts_y = result_y.frequencies()
+            # counts_z = counts_to_qibo(counts_z)
+            # counts_x = counts_to_qibo(counts_x)
+            # counts_y = counts_to_qibo(counts_y)
+                
+            counts_zxxz_list = []
+            counts_zyyz_list = []
+            for i in range(num_iter):
+                counts_zxxz = results[i+3].get_counts()
+                counts_zyyz = results[i+num_iter+3].get_counts()
+                # counts_zxxz = counts_to_qibo(counts_zxxz)
+                # counts_zyyz = counts_to_qibo(counts_zyyz)
+                counts_zxxz_list.append(counts_zxxz)
+                counts_zyyz_list.append(counts_zyyz)
 
-            zxxz += zxxz_zyyz.expectation_from_samples(counts_x)
-            zyyz += zxxz_zyyz.expectation_from_samples(counts_y)
-
-        energy = (-1/8)*(zxxz+zyyz+xx+yy)
-
-        return energy
+            return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list], compiled_circuits 
+    
 
     def sample_q1(self, counts_z, boundaries):
         q1 = self.get_q1(boundaries)
@@ -2214,12 +2439,30 @@ class XXZ_folded:
         #     for j in range(self.N-1):
         #         xx_yy += Z(j+1)*Z(j+2)
         # else:
-        for j in range(self.N-2):
-            xx_yy += Z(j+1)*Z(j+2)
-        xx_yy += Z(0)*Z(1)
+        for j in range(self.N-1):
+            xx_yy += Z(j)*Z(j+1)
+        #xx_yy += Z(0)*Z(1)
         xx_yy = SymbolicHamiltonian(xx_yy, backend=self.backend)
         xx = xx_yy.expectation_from_samples(counts_x)
         yy = xx_yy.expectation_from_samples(counts_y)
+
+
+        ##########################
+        xx = 0
+        yy = 0
+        xx_yy_obs = backend.cast(np.kron(np.array([[1,0],[0,-1]]), np.array([[1,0],[0,-1]])))
+        xx_yy_ham = Hamiltonian(2, xx_yy_obs, backend=self.backend)
+        for j in range(0,self.N-1):
+        #for j in [3]:
+            counts_x_reduced = self.trace_frequencies(counts_x, [j,j+1])
+            xx += xx_yy_ham.expectation_from_samples(counts_x_reduced)
+            #print(xx_yy_ham.expectation_from_samples(counts_x_reduced), [j,j+1])
+
+            counts_y_reduced = self.trace_frequencies(counts_y, [j,j+1])
+            yy += xx_yy_ham.expectation_from_samples(counts_y_reduced)
+            #print(xx_yy_ham.expectation_from_samples(counts_y_reduced), [j,j+1])
+            #print(xx+yy)
+        ####################################
 
         zxxz = 0
         zyyz = 0
@@ -2249,5 +2492,80 @@ class XXZ_folded:
 
 
         energy = (-1/8)*(zxxz+zyyz+xx+yy)
+        #energy = (-1/8)*(xx+yy)
+        return energy
+    
+    # def test_exp_xx_yy(self,counts,qubits):
+    #     nshots = sum(counts.values())
+    #     xx_yy = 0
+    #     for key, value in counts.items():
+    #         if key[qubits[0]] == '0' and key[qubits[1]] == '1':
+    #             xx_yy += -2*value
+    #         elif key[qubits[0]] == '1' and key[qubits[1]] == '0':
+    #             xx_yy += 2*value
 
+    #     return xx_yy/nshots
+
+    def sample_energy_postq2(self, counts_x_y_even, counts_x_y_odd, new_indices_list, counts_zxxz_zyyz_list, backend=None): # it only works without boundaries
+
+        backend = _check_backend(backend)
+
+        zero_zero = backend.cast(np.array([[1,0],[0,0]]))
+        one_one = backend.cast(np.array([[0,0],[0,1]]))
+        s = 1/np.sqrt(2)
+        xx_yy_obs = backend.cast(np.array([
+                [0, 0, 0, 0],
+                [0, -2, 0, 0],
+                [0, 0, 2, 0],
+                [0, 0, 0, 0]
+            ]))
+
+ 
+        xx_yy_even = 0
+        xx_yy_odd = 0
+        # if boundaries:
+        #     for j in range(self.N-1):
+        #         xx_yy += Z(j+1)*Z(j+2)
+        # else:
+        xx_yy_ham = Hamiltonian(2, xx_yy_obs, backend=self.backend)
+        for j in range(0,self.N-1):
+        #for j in [3]:
+            if j % 2 == 0:
+                counts_x_y_even_reduced = self.trace_frequencies(counts_x_y_even, [j,j+1])
+                xx_yy_even += xx_yy_ham.expectation_from_samples(counts_x_y_even_reduced)
+                #print(xx_yy_ham.expectation_from_samples(counts_x_y_even_reduced), [j,j+1])
+                #print(xx_yy_even)
+                #xx_yy_even = self.test_exp_xx_yy(counts_x_y_even, [j,j+1])
+            else:
+                counts_x_y_odd_reduced = self.trace_frequencies(counts_x_y_odd, [j,j+1])
+                xx_yy_odd += xx_yy_ham.expectation_from_samples(counts_x_y_odd_reduced)
+                #print(xx_yy_ham.expectation_from_samples(counts_x_y_odd_reduced), [j,j+1])
+
+                #xx_yy_odd = self.test_exp_xx_yy(counts_x_y_odd, [j,j+1])
+            #print(xx_yy_even + xx_yy_odd, [j,j+1])
+        zxxz_zyyz = 0
+        z_matrix = backend.cast(np.array([[1,0],[0,-1]]))
+        for k, indexes in enumerate(new_indices_list):
+            counts_zxxz_zyyz = counts_zxxz_zyyz_list[k]
+            for j  in indexes:
+                if j == 'left_b': 
+                    zxxz_zyyz_mat = backend.np.kron(xx_yy_obs, z_matrix)
+                    qubits = [0,1,2]
+                    zxxz_zyyz_ham  = Hamiltonian(3, zxxz_zyyz_mat, backend=self.backend)                 
+                elif j == 'right_b':
+                    zxxz_zyyz_mat = backend.np.kron(z_matrix, xx_yy_obs)
+                    qubits = [self.N-3,self.N-2,self.N-1]
+                    zxxz_zyyz_ham  = Hamiltonian(3, zxxz_zyyz_mat, backend=self.backend)
+                else:
+                    zxxz_zyyz_mat = backend.np.kron(z_matrix, backend.np.kron(xx_yy_obs, z_matrix))
+                    qubits = [j,j+1,j+2,j+3]
+                    zxxz_zyyz_ham  = Hamiltonian(4, zxxz_zyyz_mat, backend=self.backend)            
+                
+                counts_zxxz_zyyz_j = self.trace_frequencies(counts_zxxz_zyyz, qubits)
+
+                zxxz_zyyz += zxxz_zyyz_ham.expectation_from_samples(counts_zxxz_zyyz_j)
+
+
+        energy = (-1/8)*(zxxz_zyyz+xx_yy_even+xx_yy_odd)
+        #energy = (-1/8)*(xx_yy_even+xx_yy_odd)
         return energy

@@ -81,7 +81,7 @@ def main():
         "--nthreads", type=int, default=8, help="Number of threads for numba"
     )
     parser.add_argument(
-        "--device", type=str, default="local_noiseless_simulator", help="Quantinuum device (H1-1E, H2-1E). Default: local_noiseless_simulator"
+        "--device", type=str, default="quantinuum.local_noiseless_simulator", help="Quantinuum device (H1-1E, H2-1E). Default: local_noiseless_simulator"
     )
     parser.add_argument(
         "--nshots", type=int, default=1000, help="Number of shots for sampling"
@@ -108,8 +108,8 @@ def main():
     nshots = args.nshots
 
     path = path + f"{device}_N{N}_M{M}_D{D}"
-    momentum_ints = np.linspace(1, N - M - D + 1, M).tolist()
-    #momentum_ints = [i + 1 for i in range(M)]
+    momentum_ints = np.linspace(2, N - M - D + 1, M).tolist()
+    momentum_ints = [i + 1 for i in range(M)]
 
     if lamb == 0:
         noise_model = None
@@ -207,12 +207,55 @@ def main():
 
     if circ_qiskit1.layout is None:
         layout_final = None
+        
     else:
         layout_final = []
         for q in circ_qiskit1.layout.final_layout.get_virtual_bits().values():
             layout_final.append(q)
         print("final layout", layout_final)
 
+
+    max_bond_dim = 4**M
+    if max_bond_dim is not None:
+        from qiskit_addon_aqc_tensor.simulation import tensornetwork_from_circuit
+        from qiskit_addon_aqc_tensor.simulation import compute_overlap
+        from qiskit_aer import AerSimulator
+
+
+        
+        simulator = AerSimulator(
+            method='matrix_product_state',
+            enable_truncation=False,
+            zero_threshold=None,
+            validation_threshold=None,
+            matrix_product_state_max_bond_dimension=None,
+            matrix_product_state_truncation_threshold=None,
+            chop_threshold=None
+        )
+
+        target = tensornetwork_from_circuit(
+            circ_qiskit, simulator
+            
+        )
+        
+        fidelity_list = []
+        bond_dim_list = list(range(1, max_bond_dim + 1))
+        for bond_dim in bond_dim_list:
+            simulator_mps = AerSimulator(
+                method="matrix_product_state",
+                enable_truncation=True,
+                matrix_product_state_max_bond_dimension=bond_dim,
+            )
+            mps_state = tensornetwork_from_circuit(
+                circ_qiskit, simulator_mps)
+            
+            comparison_fidelity = (
+                abs(compute_overlap(mps_state, target)) ** 2
+            )
+            print(f"Comparison fidelity: {comparison_fidelity}")
+            fidelity_list.append(comparison_fidelity)
+        
+    np.save(path + f"/fidelity_mps_N{N}_M{M}_D{D}_area.npy", np.array([bond_dim_list,fidelity_list]))
     qasm_code = qasm2.dumps(circ_qiskit1)
     circ_qibo = Circuit.from_qasm(qasm_code)
 
@@ -308,14 +351,28 @@ def main():
     #     model.circ_full = circ_compiled
     #     np.save(path + "/circuit_compiled.npy", circ_compiled)
     compile = True
-    circ_to_quantinuum = True
-    counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
-        device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
-    )
+
+    if  'quantinuum' in device:
+        circ_to_quantinuum = True
+        counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
+            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
+        )
+        counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_quantinuum_postq2(
+            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
+        )
+    elif 'ionq' in device:
+        circ_to_ionq = True
+        counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_ionq(
+            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile
+        )
+    new_indices_list_postq2, counts_zxxz_zyyz_list1 = counts_energy1_postq2
     new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
+
     if measure_all:
         counts_x = model.get_nsites_counts(counts_x1, postselect=False)
         counts_y = model.get_nsites_counts(counts_y1, postselect=False)
+        counts_x_y_even = model.get_nsites_counts(counts_x_y_even1, postselect=False)
+        counts_x_y_odd = model.get_nsites_counts(counts_x_y_odd1, postselect=False)
         counts_z = model.get_nsites_counts(counts_z1, postselect=False)
         counts_zxxz_list = [
             model.get_nsites_counts(counts, postselect=False)
@@ -325,18 +382,24 @@ def main():
             model.get_nsites_counts(counts, postselect=False)
             for counts in counts_zyyz_list1
         ]
+        counts_zxxz_zyyz_list = [
+            model.get_nsites_counts(counts, postselect=False)
+            for counts in counts_zxxz_zyyz_list1
+        ]       
     else:
         counts_x = counts_x1
         counts_y = counts_y1
+        counts_x_y_even = counts_x_y_even1
+        counts_x_y_odd = counts_x_y_odd1
         counts_z = counts_z1
         counts_zxxz_list = counts_zxxz_list1
         counts_zyyz_list = counts_zyyz_list1
+        counts_zxxz_zyyz_list = counts_zxxz_zyyz_list1
 
     # print(counts_z)
 
     q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
     q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
-    # energy_sample = model.sample_energy(counts_x, counts_y, nshots, noise_model, layout=layout_final, boundaries=boundaries, backend=backend)
 
     e1_sample = model.sample_ej(1, counts_z, boundaries=boundaries)
     e2_sample = model.sample_ej(2, counts_z, boundaries=boundaries)
@@ -352,7 +415,16 @@ def main():
         backend=backend,
     )
 
-    print("  Energy sample: ", energy_sample)
+    energy_sample_postq2 = model.sample_energy_postq2(
+        counts_x_y_even,
+        counts_x_y_odd,
+        new_indices_list_postq2,
+        counts_zxxz_zyyz_list,
+        backend=backend,
+    )
+
+    print('  Energy sample:', energy_sample)
+    print("  Energy sample post q2: ", energy_sample_postq2)
     print("  Q1 sample: ", q1_sample)
     print("  Q2 sample: ", q2_sample)
     print("  E1 sample: ", e1_sample)
