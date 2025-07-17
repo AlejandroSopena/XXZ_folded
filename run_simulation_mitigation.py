@@ -432,16 +432,12 @@ def main():
     print("  Nonlocal Pauli sample: ", nonlocal_pauli_sample)
 
     if measure_all and error_detection:
-        counts_x_post = model.get_nsites_counts(counts_x1, postselect=True)
-        counts_y_post = model.get_nsites_counts(counts_y1, postselect=True)
-        counts_z_post = model.get_nsites_counts(counts_z1, postselect=True)
-        counts_zxxz_post_list = [
-            model.get_nsites_counts(counts, postselect=True)
-            for counts in counts_zxxz_list1
-        ]
-        counts_zyyz_post_list = [
-            model.get_nsites_counts(counts, postselect=True)
-            for counts in counts_zyyz_list1
+        counts_x_y_even_post = model.get_nsites_counts(counts_x_y_even1, postselect=True, postselect_aux=True, mode_aux='bound')
+        counts_x_y_odd_post = model.get_nsites_counts(counts_x_y_odd1, postselect=True, postselect_aux=True, mode_aux='bound')
+        counts_z_post = model.get_nsites_counts(counts_z1, postselect=True, postselect_aux=True, mode_aux='exact')
+        counts_zxxz_zyyz_post_list = [
+            model.get_nsites_counts(counts, postselect=True, postselect_aux=True, mode_aux='bound')
+            for counts in counts_zxxz_zyyz_list1
         ]
 
         q1_sample_post = model.sample_q1(counts_z_post, boundaries=boundaries)
@@ -451,16 +447,15 @@ def main():
         nonlocal_pauli_sample_post = model.sample_nonlocal_pauli(
             3, counts_z_post, boundaries=boundaries
         )
-        energy_sample_post = model.sample_energy(
-            counts_x_post,
-            counts_y_post,
-            new_indices_list,
-            counts_zxxz_post_list,
-            counts_zyyz_post_list,
+        energy_sample_post = model.sample_energy_postq2(
+            counts_x_y_even_post,
+            counts_x_y_odd_post,
+            new_indices_list_postq2,
+            counts_zxxz_zyyz_post_list,
             backend=backend,
         )
 
-        print("Error detection")
+        print("Error detection q1 and q2")
         print("  Energy sample post: ", energy_sample_post)
         print("  Q1 sample post: ", q1_sample_post)
         print("  Q2 sample post: ", q2_sample_post)
@@ -469,9 +464,9 @@ def main():
         print("  Nonlocal Pauli sample post: ", nonlocal_pauli_sample_post)
 
     if error_detection:
-        counts_result = [[counts_x, counts_x_post, counts_x1], [counts_y, counts_y_post, counts_y1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_list, counts_zxxz_post_list, counts_zxxz_list1], [counts_zyyz_list, counts_zyyz_post_list, counts_zyyz_list1], new_indices_list]
+        counts_result = [[counts_x_y_even, counts_x_y_even_post, counts_x_y_even1], [counts_x_y_odd, counts_x_y_odd_post, counts_x_y_odd1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_zyyz_list, counts_zxxz_zyyz_post_list, counts_zxxz_zyyz_list1], new_indices_list_postq2]
     else:
-        counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
+        counts_result = [counts_x_y_even, counts_x_y_odd, counts_z, counts_zxxz_zyyz_list, new_indices_list_postq2]
     np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
 
     if backend.platform == "cupy":

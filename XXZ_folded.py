@@ -1839,15 +1839,40 @@ class XXZ_folded:
 
         return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list] 
     
-    def count_transitions(binary_string):
+    def count_transitions(self, binary_string):
         count = 0
+        if binary_string[0] == '1':
+            count += 1
+        if binary_string[-1] == '1':
+            count += 1
         for i in range(1, len(binary_string)):
             if (binary_string[i-1] == '0' and binary_string[i] == '1') or \
             (binary_string[i-1] == '1' and binary_string[i] == '0'):
                 count += 1
         return count
+    
+    # def count_transitions(self, binary_string):
+    #     count_odd = 0
+    #     count_even = 0
+    #     for k in range(len(binary_string)-1):
+    #         if binary_string[k] != binary_string[k+1]:
+    #             if k % 2 == 0:
+    #                 count_even += 1
+    #             else:
+    #                 count_odd += 1
 
-    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False):
+    #     if binary_string[0] == '1':
+    #         count_odd += 1
+    #     if len(binary_string) % 2 == 0:
+    #         if binary_string[-1] == '1':
+    #             count_odd += 1
+    #     else:
+    #         if binary_string[-1] == '1':
+    #             count_even += 1
+
+    #     return count_even, count_odd
+
+    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode_aux=None):
         # only for D=0
         from collections import Counter
         new_counts = Counter()
@@ -1861,8 +1886,11 @@ class XXZ_folded:
         if postselect_aux:
             new_counts2 = Counter()
             for key, value in new_counts.items():
-                if self.count_transitions(key) == int(2*self.M):
+                if mode_aux=='bound' and self.count_transitions(key) <= int(2*self.M):
                     new_counts2[key] = value
+                elif mode_aux=='exact' and self.count_transitions(key) == int(2*self.M):
+                    new_counts2[key] = value
+
             new_counts = new_counts2
 
         return new_counts
