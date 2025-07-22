@@ -81,7 +81,7 @@ def main():
         "--nthreads", type=int, default=8, help="Number of threads for numba"
     )
     parser.add_argument(
-        "--device", type=str, default="quantinuum.local_noiseless_simulator", help="Quantinuum device (H1-1E, H2-1E). Default: local_noiseless_simulator"
+        "--device", type=str, default="quantinuum.local_noiseless_simulator", help="Quantinuum device (H1-1E, H2-1E). Default: quantinuum.local_noiseless_simulator"
     )
     parser.add_argument(
         "--nshots", type=int, default=1000, help="Number of shots for sampling"
@@ -215,7 +215,7 @@ def main():
         print("final layout", layout_final)
 
 
-    max_bond_dim = 4**M
+    max_bond_dim = None#4**M
     if max_bond_dim is not None:
         from qiskit_addon_aqc_tensor.simulation import tensornetwork_from_circuit
         from qiskit_addon_aqc_tensor.simulation import compute_overlap
@@ -255,7 +255,7 @@ def main():
             print(f"Comparison fidelity: {comparison_fidelity}")
             fidelity_list.append(comparison_fidelity)
         
-    np.save(path + f"/fidelity_mps_N{N}_M{M}_D{D}_area.npy", np.array([bond_dim_list,fidelity_list]))
+        np.save(path + f"/fidelity_mps_N{N}_M{M}_D{D}_area.npy", np.array([bond_dim_list,fidelity_list]))
     qasm_code = qasm2.dumps(circ_qiskit1)
     circ_qibo = Circuit.from_qasm(qasm_code)
 
@@ -276,7 +276,7 @@ def main():
     # circ_qiskit = tk_to_qiskit(circ_quantinuum)
     # qasm_code = qasm2.dumps(circ_qiskit)
     # circ = Circuit.from_qasm(qasm_code)
-
+    #circ_qibo = model.circ_full ################################################# REMOVE THIS LINE IF YOU WANT TO USE THE CIRCUIT FROM QISKIT
     model.circ_full = circ_qibo
     np.save(path + "/circuit.npy", circ_qibo)
     ###################################
@@ -339,7 +339,7 @@ def main():
 
     measure_all = True
     error_detection = True
-    mitigation_method = "CDR_ZNE"
+    mitigation_method = 'None'#"CDR_ZNE"
 
     # if "ZNE" in mitigation_method:
     #     circ_quantinuum = model.circ_to_quantinuum(circ_qibo,measure_all=measure_all)    
@@ -351,49 +351,54 @@ def main():
     #     model.circ_full = circ_compiled
     #     np.save(path + "/circuit_compiled.npy", circ_compiled)
     compile = True
-
+    #model.circ_full = circ_qiskit1
     if  'quantinuum' in device:
         circ_to_quantinuum = True
-        counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
-            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
-        )
+        # counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_quantinuum(
+        #     device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
+        # )
         counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_quantinuum_postq2(
             device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
         )
+        #print(counts_z1)
     elif 'ionq' in device:
         circ_to_ionq = True
-        counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_ionq(
-            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile
+        # counts_x1, counts_y1, counts_z1, counts_energy1, compiled_circuits = model.sample_circuit_ionq_po(
+        #     device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile
+        # )
+        counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_ionq_postq2(
+            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_ionq=circ_to_ionq
         )
-    new_indices_list_postq2, counts_zxxz_zyyz_list1 = counts_energy1_postq2
-    new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
+        #print(counts_z1)
+    new_indices_list_q2, counts_zxxz_zyyz_list1 = counts_energy1_postq2
+    # new_indices_list, counts_zxxz_list1, counts_zyyz_list1 = counts_energy1
 
     if measure_all:
-        counts_x = model.get_nsites_counts(counts_x1, postselect=False)
-        counts_y = model.get_nsites_counts(counts_y1, postselect=False)
+        # counts_x = model.get_nsites_counts(counts_x1, postselect=False)
+        # counts_y = model.get_nsites_counts(counts_y1, postselect=False)
         counts_x_y_even = model.get_nsites_counts(counts_x_y_even1, postselect=False)
         counts_x_y_odd = model.get_nsites_counts(counts_x_y_odd1, postselect=False)
         counts_z = model.get_nsites_counts(counts_z1, postselect=False)
-        counts_zxxz_list = [
-            model.get_nsites_counts(counts, postselect=False)
-            for counts in counts_zxxz_list1
-        ]
-        counts_zyyz_list = [
-            model.get_nsites_counts(counts, postselect=False)
-            for counts in counts_zyyz_list1
-        ]
+        # counts_zxxz_list = [
+        #     model.get_nsites_counts(counts, postselect=False)
+        #     for counts in counts_zxxz_list1
+        # ]
+        # counts_zyyz_list = [
+        #     model.get_nsites_counts(counts, postselect=False)
+        #     for counts in counts_zyyz_list1
+        # ]
         counts_zxxz_zyyz_list = [
             model.get_nsites_counts(counts, postselect=False)
             for counts in counts_zxxz_zyyz_list1
         ]       
     else:
-        counts_x = counts_x1
-        counts_y = counts_y1
+        # counts_x = counts_x1
+        # counts_y = counts_y1
         counts_x_y_even = counts_x_y_even1
         counts_x_y_odd = counts_x_y_odd1
         counts_z = counts_z1
-        counts_zxxz_list = counts_zxxz_list1
-        counts_zyyz_list = counts_zyyz_list1
+        # counts_zxxz_list = counts_zxxz_list1
+        # counts_zyyz_list = counts_zyyz_list1
         counts_zxxz_zyyz_list = counts_zxxz_zyyz_list1
 
     # print(counts_z)
@@ -406,25 +411,25 @@ def main():
     nonlocal_pauli_sample = model.sample_nonlocal_pauli(
         3, counts_z, boundaries=boundaries
     )
-    energy_sample = model.sample_energy(
-        counts_x,
-        counts_y,
-        new_indices_list,
-        counts_zxxz_list,
-        counts_zyyz_list,
-        backend=backend,
-    )
+    # energy_sample = model.sample_energy(
+    #     counts_x,
+    #     counts_y,
+    #     new_indices_list,
+    #     counts_zxxz_list,
+    #     counts_zyyz_list,
+    #     backend=backend,
+    # )
 
-    energy_sample_postq2 = model.sample_energy_postq2(
+    energy_sample_q2 = model.sample_energy_postq2(
         counts_x_y_even,
         counts_x_y_odd,
-        new_indices_list_postq2,
+        new_indices_list_q2,
         counts_zxxz_zyyz_list,
         backend=backend,
     )
 
-    print('  Energy sample:', energy_sample)
-    print("  Energy sample post q2: ", energy_sample_postq2)
+    #print('  Energy sample:', energy_sample)
+    print("  Energy sample (new method): ", energy_sample_q2)
     print("  Q1 sample: ", q1_sample)
     print("  Q2 sample: ", q2_sample)
     print("  E1 sample: ", e1_sample)
@@ -432,11 +437,11 @@ def main():
     print("  Nonlocal Pauli sample: ", nonlocal_pauli_sample)
 
     if measure_all and error_detection:
-        counts_x_y_even_post = model.get_nsites_counts(counts_x_y_even1, postselect=True, postselect_aux=True, mode_aux='bound')
-        counts_x_y_odd_post = model.get_nsites_counts(counts_x_y_odd1, postselect=True, postselect_aux=True, mode_aux='bound')
-        counts_z_post = model.get_nsites_counts(counts_z1, postselect=True, postselect_aux=True, mode_aux='exact')
+        counts_x_y_even_post = model.get_nsites_counts(counts_x_y_even1, postselect=True, postselect_aux=True, mode='not_z') #'not_z'
+        counts_x_y_odd_post = model.get_nsites_counts(counts_x_y_odd1, postselect=True, postselect_aux=True, mode='not_z') #'not_z'
+        counts_z_post = model.get_nsites_counts(counts_z1, postselect=True, postselect_aux=True, mode='z') 
         counts_zxxz_zyyz_post_list = [
-            model.get_nsites_counts(counts, postselect=True, postselect_aux=True, mode_aux='bound')
+            model.get_nsites_counts(counts, postselect=True, postselect_aux=True, mode='not_z') #'not_z'
             for counts in counts_zxxz_zyyz_list1
         ]
 
@@ -450,7 +455,7 @@ def main():
         energy_sample_post = model.sample_energy_postq2(
             counts_x_y_even_post,
             counts_x_y_odd_post,
-            new_indices_list_postq2,
+            new_indices_list_q2,
             counts_zxxz_zyyz_post_list,
             backend=backend,
         )
@@ -463,10 +468,19 @@ def main():
         print("  E2 sample post: ", e2_sample_post)
         print("  Nonlocal Pauli sample post: ", nonlocal_pauli_sample_post)
 
+
+        print('Relative errors (raw/post)')
+        print("  Energy relative error: ", abs(energy_noiseless - energy_sample_q2) / abs(energy_noiseless), abs(energy_noiseless - energy_sample_post) / abs(energy_noiseless))
+        print("  Q1 relative error: ", abs(Q1_noiseless - q1_sample) / abs(Q1_noiseless), abs(Q1_noiseless - q1_sample_post) / abs(Q1_noiseless))
+        print("  Q2 relative error: ", abs(Q2_noiseless - q2_sample) / abs(Q2_noiseless), abs(Q2_noiseless - q2_sample_post) / abs(Q2_noiseless))
+        print("  E1 relative error: ", abs(E1_noiseless - e1_sample) / abs(E1_noiseless), abs(E1_noiseless - e1_sample_post) / abs(E1_noiseless))
+        print("  E2 relative error: ", abs(E2_noiseless - e2_sample) / abs(E2_noiseless), abs(E2_noiseless - e2_sample_post) / abs(E2_noiseless))
+        print("  Nonlocal Pauli relative error: ", abs(nonlocal_pauli_noiseless - nonlocal_pauli_sample) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - nonlocal_pauli_sample_post) / abs(nonlocal_pauli_noiseless))
+
     if error_detection:
-        counts_result = [[counts_x_y_even, counts_x_y_even_post, counts_x_y_even1], [counts_x_y_odd, counts_x_y_odd_post, counts_x_y_odd1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_zyyz_list, counts_zxxz_zyyz_post_list, counts_zxxz_zyyz_list1], new_indices_list_postq2]
+        counts_result = [[counts_x_y_even, counts_x_y_even_post, counts_x_y_even1], [counts_x_y_odd, counts_x_y_odd_post, counts_x_y_odd1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_zyyz_list, counts_zxxz_zyyz_post_list, counts_zxxz_zyyz_list1], new_indices_list_q2]
     else:
-        counts_result = [counts_x_y_even, counts_x_y_odd, counts_z, counts_zxxz_zyyz_list, new_indices_list_postq2]
+        counts_result = [counts_x_y_even, counts_x_y_odd, counts_z, counts_zxxz_zyyz_list, new_indices_list_q2]
     np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
 
     if backend.platform == "cupy":

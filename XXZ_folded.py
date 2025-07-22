@@ -1495,7 +1495,7 @@ class XXZ_folded:
 
     def circ_to_qiskit(self, circ, measure_all=False):
         from qiskit import QuantumCircuit
-        from qiskit.circuit.library import XGate, SwapGate, CXGate, UnitaryGate, CZGate
+        from qiskit.circuit.library import XGate, SwapGate, CXGate, UnitaryGate, CZGate, RZGate, SXGate
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
@@ -1506,13 +1506,17 @@ class XXZ_folded:
         for g in gate_list:
             control_qubits = g.control_qubits[::-1]
             target_qubits = g.target_qubits[::-1]
-            if isinstance(g, gates.X) or isinstance(g, gates.SWAP) or isinstance(g, gates.TOFFOLI):
+            if isinstance(g, gates.X) or isinstance(g, gates.SWAP) or isinstance(g, gates.TOFFOLI) or isinstance(g, gates.RZ) or isinstance(g, gates.SX):
                 if isinstance(g, gates.X):
                     g1 = XGate()
                 elif isinstance(g, gates.SWAP):
                     g1 = SwapGate()
                 elif isinstance(g, gates.TOFFOLI):
                     g1 = XGate()
+                elif isinstance(g, gates.RZ):
+                    g1 = RZGate(g.parameters[0])
+                elif isinstance(g, gates.SX):
+                    g1 = SXGate()
                 if len(control_qubits) == 0:
                     circ_qiskit.append(g1, target_qubits)
                 else:
@@ -1529,6 +1533,8 @@ class XXZ_folded:
                 else:
                     circ_qiskit.append(UnitaryGate(matrix).control(
                         len(control_qubits)), control_qubits+target_qubits)
+            else:
+                raise ValueError(f"Unsupported gate type: {type(g)}")
                     
         return circ_qiskit
     
@@ -1872,26 +1878,74 @@ class XXZ_folded:
 
     #     return count_even, count_odd
 
-    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode_aux=None):
+    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None):
         # only for D=0
         from collections import Counter
         new_counts = Counter()
-        for key, value in counts.items():
-            if postselect:
-                if key[self.N:self.N+self.M+1] == '0'*self.M+'1':
-                    new_counts[key[0:self.N]] = value
-            else:
-                new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+        # for key, value in counts.items():
+        #     if postselect and mode=='not_z':
+        #         if key[self.N:self.N+self.M+1] == '0'*self.M+'1':
+        #             new_counts[key[0:self.N]] = value
+        #     else:
+        #         new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+
+        # if postselect and mode=='z':
+        #     new_counts2 = Counter()
+        #     for key, value in new_counts.items():
+        #         if key.count('1') == self.M:
+        #             new_counts2[key] = value
+        #     new_counts = new_counts2
+
+        if postselect:
+            new_counts2 = Counter()
+            for key, value in new_counts.items():
+                if key.count('1') == self.M and key[self.N:self.N+self.M+1] == '0'*self.M+'1':
+                    new_counts2[key[0:self.N]] = value
+            new_counts = new_counts2
+
+        if postselect:
+            print('survival counts post q1',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
 
         if postselect_aux:
             new_counts2 = Counter()
             for key, value in new_counts.items():
-                if mode_aux=='bound' and self.count_transitions(key) <= int(2*self.M):
+                if mode=='not_z' and self.count_transitions(key) <= int(2*self.M):
                     new_counts2[key] = value
-                elif mode_aux=='exact' and self.count_transitions(key) == int(2*self.M):
+                elif mode=='z' and self.count_transitions(key) == int(2*self.M):
                     new_counts2[key] = value
 
-            new_counts = new_counts2
+            new_counts = new_counts2        
+
+            print('survival counts post q1 and q2',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
+
+        return new_counts
+    
+
+    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None): #new mode
+        # only for D=0
+        from collections import Counter
+        new_counts = Counter()
+        for key, value in counts.items():
+            if postselect: #and mode=='not_z':
+                if key[0:self.N].count('1') == self.M and key[self.N:self.N+self.M+1] == '0'*self.M+'1':
+                    new_counts[key[0:self.N]] = value
+            else:
+                new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+
+        if postselect:
+            print('survival counts post q1',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
+
+        if postselect_aux:
+            new_counts2 = Counter()
+            for key, value in new_counts.items():
+                if mode=='not_z' and self.count_transitions(key) <= int(2*self.M):
+                    new_counts2[key] = value
+                elif mode=='z' and self.count_transitions(key) == int(2*self.M):
+                    new_counts2[key] = value
+
+            new_counts = new_counts2        
+
+            print('survival counts post q1 and q2',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
 
         return new_counts
     
@@ -2389,9 +2443,9 @@ class XXZ_folded:
             name_project = "XXZ_folded"
             results, compiled_circuits = compile_ionq(circs, optimization_level, nshots, device, compile, counts=False)
 
-            counts_z = results[0].get_counts()
-            counts_x = results[1].get_counts()
-            counts_y = results[2].get_counts()
+            counts_z = results.get_counts(circs[0])
+            counts_x = results.get_counts(circs[1])
+            counts_y = results.get_counts(circs[2])
 
             # counts_z = counts_to_qibo(counts_z)
             # counts_x = counts_to_qibo(counts_x)
@@ -2400,14 +2454,172 @@ class XXZ_folded:
             counts_zxxz_list = []
             counts_zyyz_list = []
             for i in range(num_iter):
-                counts_zxxz = results[i+3].get_counts()
-                counts_zyyz = results[i+num_iter+3].get_counts()
+                counts_zxxz = results.get_counts(circs[i+3])
+                counts_zyyz = results.get_counts(circs[i+num_iter+3])
                 # counts_zxxz = counts_to_qibo(counts_zxxz)
                 # counts_zyyz = counts_to_qibo(counts_zyyz)
                 counts_zxxz_list.append(counts_zxxz)
                 counts_zyyz_list.append(counts_zyyz)
 
             return counts_x, counts_y, counts_z, [new_indices_list, counts_zxxz_list, counts_zyyz_list], compiled_circuits 
+
+
+    def sample_circuit_ionq_postq2(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True, circ_to_ionq=True, optimization_level=3): #it works without boundaries
+        
+        if self.D != 0:
+            if boundaries:
+                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+                else:
+                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+            else:
+                if self.M == 1:
+                    keep = [2*j+1 for j in range(self.N-self.D)] + \
+                        [2*(self.N-self.D)+i for i in range(self.D)]
+                else:
+                    keep = [2*j+1 for j in range(self.N-self.D)] + \
+                        [2*(self.N-self.D)+i for i in range(self.D)]
+        else:
+            if boundaries:
+                raise ValueError(
+                    'Boundaries not implemented for D=0')
+            else:
+                keep = list(range(self.N))
+                aux = list(range(self.N,self.N+self.M+1))
+                if measure_all:
+                    keep_aux = keep + aux
+                else:
+                    keep_aux = keep
+
+        if layout is not None:
+            keep = [layout[k] for k in keep]
+            aux = [layout[k] for k in aux]
+            if self.D == 0 and measure_all:
+                keep_aux = keep + aux
+            else:
+                keep_aux = keep
+
+        circ = self.circ_full
+        if circ_to_ionq:
+            circ = self.circ_to_qiskit(circ, measure_all=measure_all)
+
+
+        # from pytket.extensions.qiskit import AerStateBackend
+        # aer_state_b = AerStateBackend()
+        # circ_quantinuum = aer_state_b.get_compiled_circuit(circ_quantinuum)
+
+        # state_handle = aer_state_b.process_circuit(circ_quantinuum)
+        # statevector = aer_state_b.get_result(state_handle).get_state()
+        # circ.density_matrix = False
+        # from qibo.backends import construct_backend
+        # backend = construct_backend("qibojit",platform='numba')
+        # from qibo.quantum_info import fidelity
+        # print(fidelity(backend.execute_circuit(circ).state(), statevector, backend=backend))
+
+        circ_z = circ.copy()
+        #circ_z.measure_all()
+        # for j, q in enumerate(keep_aux):
+        #     circ_z.measure(q, j)
+
+        circ_z.measure(keep_aux, list(range(len(keep_aux)))[::-1])
+
+        from qiskit.circuit.library import UnitaryGate, RXXGate
+
+        rotation_gate = gates.GIVENS(0,1,np.pi/4)
+        matrix = rotation_gate.matrix(self.backend)
+        g1 = UnitaryGate(matrix)
+
+
+
+        #g1 = RXXGate(np.pi/4)
+        circ_x_y_even = circ.copy()
+        circ_x_y_odd = circ.copy()
+        for index, q in enumerate(keep[0:-1]):
+            if index % 2 == 0:
+                circ_x_y_even.append(g1, [keep[index+1], keep[index]])
+                #add_givens_rotation(circ_x_y_even, [keep[index+1], keep[index]])
+            else:
+                circ_x_y_odd.append(g1, [keep[index+1], keep[index]])
+                #add_givens_rotation(circ_x_y_odd, [keep[index+1], keep[index]]) 
+        # for j, q in enumerate(keep_aux):
+        #     circ_x_y_even.measure(q, j)
+        #     circ_x_y_odd.measure(q, j)
+        circ_x_y_even.measure(keep_aux, list(range(len(keep_aux)))[::-1])
+        circ_x_y_odd.measure(keep_aux, list(range(len(keep_aux)))[::-1])
+
+        # circ_z = device_backend.get_compiled_circuit(circ_z, optimisation_level=2)
+        # circ_x = device_backend.get_compiled_circuit(circ_x, optimisation_level=2)
+        # circ_y = device_backend.get_compiled_circuit(circ_y, optimisation_level=2)
+        # print('depth quantinuum', circ_z.depth())
+        # print('1q gates quantinuum', circ_z.n_1qb_gates())
+        # print('2q gates quantinuum', circ_z.n_2qb_gates())
+
+            
+        num_iter = 3 #int((self.N-self.N%3)/3) - 1
+
+        output_list = []
+        new_indices_list = []
+        for i in range(num_iter):
+            if i == 0:
+                output = self.create_repeated_string()
+            else:
+                output = 'x'+output[:self.N-1]
+            indices = [i for i, char in enumerate(output) if char == 'z']
+            new_indices = []
+            for j, index in enumerate(indices):
+                if index != 2 and index != self.N - 3:
+                    if output[indices[j]:indices[j]+4] == 'zxxz':
+                        new_indices.append(index)
+                elif index == 2:
+                    if output[0:indices[j]+1] == 'xxz':
+                        new_indices.append('left_b')
+                        new_indices.append(index)
+                elif index == self.N - 3:
+                    if output[indices[j]:] == 'zxx':
+                        #new_indices.append(index)
+                        new_indices.append('right_b')
+
+            output_list.append(output)
+            new_indices_list.append(new_indices)
+
+        circ_xy_list = []
+        for string in output_list:
+            circ_zxxz_zyyz = circ.copy()
+            for j, q in enumerate(keep[0:-1]):
+                if string[j] == 'x' and string[j+1] == 'x':
+                    circ_zxxz_zyyz.append(g1, [keep[j+1], keep[j]])
+                    #add_givens_rotation(circ_zxxz_zyyz, [keep[j+1], keep[j]])
+            # for j, q in enumerate(keep_aux):
+            #         circ_zxxz_zyyz.measure(q, j)
+            circ_zxxz_zyyz.measure(keep_aux, list(range(len(keep_aux)))[::-1])
+
+            circ_xy_list.append(circ_zxxz_zyyz)
+
+
+        # Execute all circuits in one batch
+
+        circs = [circ_z, circ_x_y_even, circ_x_y_odd] + circ_xy_list 
+
+        #optimization_level = 3
+        results, compiled_circuits = compile_ionq(circs, optimization_level, nshots, device, compile, counts=False)
+
+        counts_z = results.get_counts(circs[0])
+        counts_x_y_even = results.get_counts(circs[1])
+        counts_x_y_odd = results.get_counts(circs[2])
+
+        counts_z = counts_to_qibo(counts_z)
+        counts_x_y_even = counts_to_qibo(counts_x_y_even)
+        counts_x_y_odd = counts_to_qibo(counts_x_y_odd)
+            
+        counts_zxxz_zyyz_list = []
+        for i in range(num_iter):
+            counts_zxxz_zyyz = results.get_counts(circs[i+3])
+            counts_zxxz_zyyz = counts_to_qibo(counts_zxxz_zyyz)
+            counts_zxxz_zyyz_list.append(counts_zxxz_zyyz )
+
+        return counts_x_y_even, counts_x_y_odd, counts_z, [new_indices_list, counts_zxxz_zyyz_list], compiled_circuits 
     
 
     def sample_q1(self, counts_z, boundaries):

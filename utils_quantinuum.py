@@ -32,7 +32,7 @@ def compile_quantinuum(circuits, name_project, optimization_level, nshots, devic
         device = device[11::]  # quantinuum.local_noiseless_simulator -> local_noiseless_simulator
         my_project_ref = qnx.projects.get_or_create(name=name_project)
 
-        backend_config = qnx.QuantinuumConfig(device_name=device)
+        backend_config = qnx.QuantinuumConfig(device_name=device, no_opt=False, allow_2q_gate_rebase=True, simplify_initial=True)
 
         circuit_refs = [qnx.circuits.upload(name=f"circuit_{i}",circuit=circuits[i],project=my_project_ref) for i in range(len(circuits))]
 

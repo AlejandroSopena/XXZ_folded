@@ -28,6 +28,7 @@ def get_num_gates(circuit):
 def compile_ionq(circuits, optimization_level, nshots, device, compile=True, counts=False, execute=True):
 
     my_api_key = os.getenv("MY_IONQ_API_KEY")
+    my_api_key = 'KvAMuwdHnsB061gvbAEmAJXlfLdEs6uh'
     provider = IonQProvider(my_api_key)
 
     if compile:
@@ -42,9 +43,11 @@ def compile_ionq(circuits, optimization_level, nshots, device, compile=True, cou
     else:
         backend = provider.get_backend(device[5::], gateset=gateset) # ionq.qpu.aria-1
 
-
+    for j in range(len(circuits)):
+        circuits[j].name = f"circuit_{j}" 
     #if compile:
-    compiled_circuits = transpile(circuits, backend, optimization_level=optimization_level)
+    compiled_circuits = transpile(circuits, basis_gates=["cx", "rz", "sx", "x", "id"], optimization_level=optimization_level)
+    compiled_circuits = transpile(compiled_circuits, backend, optimization_level=optimization_level)
     # else:
     #     compiled_circuits = circuits
 

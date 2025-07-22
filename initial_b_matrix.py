@@ -132,26 +132,26 @@ class XXZ_free_open_model:
 
         return a
 
-    def Ark(self,r,k):
-        def choose(n, m):
-            return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
-        rows = int(choose(self.m_k(k), r))
-        cols = int(choose(self.m_k(k), r))
-        A = np.zeros((rows,cols),complex)
-        c = self._get_Crk(r, k)
-        for a in range(rows):
-            for b in range(cols):
-                c_a_to_b = np.copy(c)
-                c_a_to_b[:,a] = c[:,b]
-                if a == 0:
-                    det_a = 1
-                else:
-                    det_a = np.linalg.det(c[0:a,0:a])
-                det_aplus1 = np.linalg.det(c[0:a+1,0:a+1])
-                det_aplus1_ab = np.linalg.det(c_a_to_b[0:a+1,0:a+1])
-                A[a,b] = det_aplus1_ab / np.sqrt(det_a*det_aplus1)
+    # def Ark(self,r,k):
+    #     def choose(n, m):
+    #         return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
+    #     rows = int(choose(self.m_k(k), r))
+    #     cols = int(choose(self.m_k(k), r))
+    #     A = np.zeros((rows,cols),complex)
+    #     c = self._get_Crk(r, k)
+    #     for a in range(rows):
+    #         for b in range(cols):
+    #             c_a_to_b = np.copy(c)
+    #             c_a_to_b[:,a] = c[:,b]
+    #             if a == 0:
+    #                 det_a = 1
+    #             else:
+    #                 det_a = np.linalg.det(c[0:a,0:a])
+    #             det_aplus1 = np.linalg.det(c[0:a+1,0:a+1])
+    #             det_aplus1_ab = np.linalg.det(c_a_to_b[0:a+1,0:a+1])
+    #             A[a,b] = det_aplus1_ab / np.sqrt(det_a*det_aplus1)
 
-        return A
+    #     return A
    
     def get_v(self):
         s1 = np.array([0,0,1,0],complex)
