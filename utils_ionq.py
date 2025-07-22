@@ -28,7 +28,6 @@ def get_num_gates(circuit):
 def compile_ionq(circuits, optimization_level, nshots, device, compile=True, counts=False, execute=True):
 
     my_api_key = os.getenv("MY_IONQ_API_KEY")
-    my_api_key = 'KvAMuwdHnsB061gvbAEmAJXlfLdEs6uh'
     provider = IonQProvider(my_api_key)
 
     if compile:

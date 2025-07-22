@@ -1932,8 +1932,6 @@ class XXZ_folded:
             else:
                 new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
 
-        if postselect:
-            print('survival counts post q1',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
 
         if postselect_aux:
             new_counts2 = Counter()
@@ -1945,7 +1943,13 @@ class XXZ_folded:
 
             new_counts = new_counts2        
 
-            print('survival counts post q1 and q2',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
+        survival_ratio = np.sum(list(new_counts.values()))/np.sum(list(counts.values()))
+        if postselect and postselect_aux:
+            print('survival counts post q1 and q2', survival_ratio)
+        elif postselect:
+            print('survival counts post q1', survival_ratio)
+        elif postselect_aux:
+            print('survival counts post q2', survival_ratio)
 
         return new_counts
     
