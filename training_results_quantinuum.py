@@ -119,61 +119,19 @@ def _get_state_cdr_reduced_counts(model, n_training_samples, nshots, path, measu
     if return_data:
         return training_states
 
-def _get_state_reduced_counts(model, nshots, path, measure_all=True, error_detection=True, return_data=False):   
+def _get_state_reduced_counts(nshots, path, return_data=False):   
     new_state = {}
     state = np.load(path+f'/state.npy',allow_pickle=True).item()
     counts = state['noisy'][0]
-    counts_x, counts_x_post, counts_x1 = counts[0]
-    counts_y, counts_y_post, counts_y1 = counts[1]
-    counts_z, counts_z_post, counts_z1 = counts[2]
-    counts_zxxz_list, counts_zxxz_post_list, counts_zxxz_list1 = counts[3]
-    counts_zyyz_list, counts_zyyz_post_list, counts_zyyz_list1 = counts[4]
-    new_indices_list = counts[5]
-    total_shots = sum(counts_x.values())
+    counts_x_y_even, counts_x_y_odd, counts_z, counts_zxxz_zyyz_list, new_indices_list = counts
+    total_shots = sum(counts_x_y_even.values())
     if nshots < total_shots:
-        counts_x1 = get_reduced_counts(counts_x1, nshots)
-        counts_y1 = get_reduced_counts(counts_y1, nshots)
-        counts_z1 = get_reduced_counts(counts_z1, nshots)
-        counts_zxxz_list1 = [get_reduced_counts(counts, nshots) for counts in counts_zxxz_list1]
-        counts_zyyz_list1 = [get_reduced_counts(counts, nshots) for counts in counts_zyyz_list1]
+        counts_x_y_even = get_reduced_counts(counts_x_y_even, nshots)
+        counts_x_y_odd = get_reduced_counts(counts_x_y_odd, nshots)
+        counts_z = get_reduced_counts(counts_z, nshots)
+        counts_zxxz_zyyz_list = [get_reduced_counts(counts, nshots) for counts in counts_zxxz_zyyz_list]
 
-        if measure_all:
-            counts_x = model.get_nsites_counts(counts_x1, postselect=False)
-            counts_y = model.get_nsites_counts(counts_y1, postselect=False)
-            counts_z = model.get_nsites_counts(counts_z1, postselect=False)
-            counts_zxxz_list = [
-                model.get_nsites_counts(counts, postselect=False)
-                for counts in counts_zxxz_list1
-            ]
-            counts_zyyz_list = [
-                model.get_nsites_counts(counts, postselect=False)
-                for counts in counts_zyyz_list1
-            ]
-        else:
-            counts_x = counts_x1
-            counts_y = counts_y1
-            counts_z = counts_z1
-            counts_zxxz_list = counts_zxxz_list1
-            counts_zyyz_list = counts_zyyz_list1
-
-        if measure_all and error_detection:
-            counts_x_post = model.get_nsites_counts(counts_x1, postselect=True)
-            counts_y_post = model.get_nsites_counts(counts_y1, postselect=True)
-            counts_z_post = model.get_nsites_counts(counts_z1, postselect=True)
-            counts_zxxz_post_list = [
-                model.get_nsites_counts(counts, postselect=True)
-                for counts in counts_zxxz_list1
-            ]
-            counts_zyyz_post_list = [
-                model.get_nsites_counts(counts, postselect=True)
-                for counts in counts_zyyz_list1
-            ]
-
-    if error_detection:
-        counts_result = [[counts_x, counts_x_post, counts_x1], [counts_y, counts_y_post, counts_y1], [counts_z, counts_z_post, counts_z1], [counts_zxxz_list, counts_zxxz_post_list, counts_zxxz_list1], [counts_zyyz_list, counts_zyyz_post_list, counts_zyyz_list1], new_indices_list]
-    else:
-        counts_result = [counts_x, counts_y, counts_z, counts_zxxz_list, counts_zyyz_list, new_indices_list]
-
+    counts_result = [counts_x_y_even, counts_x_y_odd, counts_z, counts_zxxz_zyyz_list, new_indices_list]
 
     new_state['noisy'] = [counts_result]
     np.save(path+f'/reduced_shots_{nshots}.npy', new_state)

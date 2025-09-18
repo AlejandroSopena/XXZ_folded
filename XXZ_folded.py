@@ -1921,7 +1921,7 @@ class XXZ_folded:
         return new_counts
     
 
-    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None): #new mode
+    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None, survival_ratio=False): #new mode
         # only for D=0
         from collections import Counter
         new_counts = Counter()
@@ -1943,13 +1943,16 @@ class XXZ_folded:
 
             new_counts = new_counts2        
 
-        survival_ratio = np.sum(list(new_counts.values()))/np.sum(list(counts.values()))
+        survival_ratio_val = np.sum(list(new_counts.values()))/np.sum(list(counts.values()))
         if postselect and postselect_aux:
-            print('survival counts post q1 and q2', survival_ratio)
+            print('survival counts post q1 and q2', survival_ratio_val)
         elif postselect:
-            print('survival counts post q1', survival_ratio)
+            print('survival counts post q1', survival_ratio_val)
         elif postselect_aux:
-            print('survival counts post q2', survival_ratio)
+            print('survival counts post q2', survival_ratio_val)
+
+        if survival_ratio:
+            return new_counts, survival_ratio_val
 
         return new_counts
     

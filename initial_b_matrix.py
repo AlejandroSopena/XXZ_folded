@@ -315,7 +315,7 @@ def print_fun(x, f, accepted):
 
 def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     backend = _check_backend(backend)
-    backend.set_precision('double')
+    backend.set_dtype('complex128')
     model = XXZ_free_open_model(nqubits, nmagnons)
     model.get_roots(roots)
     model.get_indexes()

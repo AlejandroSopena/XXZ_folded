@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from qiskit import transpile, qasm2
 
-from qibo import set_backend, set_precision, set_threads, gates, Circuit
+from qibo import set_backend, set_dtype, set_threads, gates, Circuit
 from qibo.quantum_info import fidelity
 from qibo.noise import (
     NoiseModel,
@@ -111,6 +111,21 @@ def main():
     momentum_ints = np.linspace(2, N - M - D + 1, M).tolist()
     momentum_ints = [i + 1 for i in range(M)]
 
+    if N == 7 and M == 2 and D == 0:
+        momentum_ints = [2, 4]
+    elif N == 8 and M == 2 and D == 0:
+        momentum_ints = [2, 5]
+    elif N == 8 and M == 3 and D == 0:
+        momentum_ints = [1, 3, 5]
+    elif N == 9 and M == 3 and D == 0:
+        momentum_ints = [1, 4, 6]
+    elif N == 10 and M == 4 and D == 0:
+        momentum_ints = [1, 3, 5, 7]
+    else:
+        print('area law')
+        momentum_ints = [i + 1 for i in range(M)]
+    
+
     if lamb == 0:
         noise_model = None
     else:
@@ -160,7 +175,10 @@ def main():
     os.makedirs(path + "/noise_states_zne", exist_ok=True)
 
     backend = construct_backend("qibojit", platform=backend_name)
-    backend.set_precision(precision)
+    if precision == 'single':
+        backend.set_dtype('complex64')
+    elif precision == 'double':
+        backend.set_dtype('complex128')
     backend.set_threads(nthreads)
 
     if backend.platform == "cupy":
@@ -201,8 +219,8 @@ def main():
         basis_gates=basis_gates,
         coupling_map=coupling_map,
         optimization_level=3,
-        layout_method="trivial",
-        routing_method="sabre",
+        # layout_method="trivial",
+        # routing_method="sabre",
     )
 
     if circ_qiskit1.layout is None:

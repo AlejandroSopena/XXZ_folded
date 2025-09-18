@@ -1,5 +1,5 @@
 from qiskit import transpile
-from qiskit_ionq import IonQProvider
+from qiskit_ionq import IonQProvider, ErrorMitigation
 import os
 
 
@@ -27,13 +27,15 @@ def get_num_gates(circuit):
 
 def compile_ionq(circuits, optimization_level, nshots, device, compile=True, counts=False, execute=True):
 
-    my_api_key = os.getenv("MY_IONQ_API_KEY")
+    my_api_key = os.getenv("IONQ_API_KEY")
     provider = IonQProvider(my_api_key)
 
     if compile:
         gateset = "native" 
     else:
-        gateset = "QIS"
+        gateset = "qis"
+
+    gateset = "qis" # compile always in qis to enable Ionq transpile optimizations
 
     if 'simulator' in device:
         backend = provider.get_backend("simulator", gateset=gateset)
@@ -45,13 +47,22 @@ def compile_ionq(circuits, optimization_level, nshots, device, compile=True, cou
     for j in range(len(circuits)):
         circuits[j].name = f"circuit_{j}" 
     #if compile:
-    compiled_circuits = transpile(circuits, basis_gates=["cx", "rz", "sx", "x", "id"], optimization_level=optimization_level)
+    compiled_circuits = transpile(circuits, basis_gates=["cx", "u3"], optimization_level=optimization_level)
     compiled_circuits = transpile(compiled_circuits, backend, optimization_level=optimization_level)
     # else:
     #     compiled_circuits = circuits
 
     if execute:
         results = backend.run(compiled_circuits, shots=nshots)
+        import requests
+
+        headers = {"Authorization": f"apiKey {my_api_key}", "Accept": "application/json"}
+        response = requests.get("https://api.ionq.co/v0.4/jobs", headers=headers)
+        jobs_list = response.json()
+        job_data = jobs_list['jobs'][0]
+        job_id = job_data['id']
+        print(f'Job ID: {job_id}')  
+        job = backend.retrieve_job(job_id)
     else:
         results = compiled_circuits
 
