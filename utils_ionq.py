@@ -61,8 +61,9 @@ def compile_ionq(circuits, optimization_level, nshots, device, compile=True, cou
         jobs_list = response.json()
         job_data = jobs_list['jobs'][0]
         job_id = job_data['id']
+        job_id = '0199f1ce-da02-716e-b41e-ee0c302dfb4b'
         print(f'Job ID: {job_id}')  
-        job = backend.retrieve_job(job_id)
+        #results = backend.retrieve_job(job_id)
     else:
         results = compiled_circuits
 

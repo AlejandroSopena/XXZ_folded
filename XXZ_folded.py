@@ -74,6 +74,10 @@ class XXZ_folded:
         self.D = D
         self.momentum_ints = momentum_ints
         self.domain_pos = domain_pos
+
+        if self.D == 0:
+            self.domain_pos = [[]]
+        self.number_ones = self.M + sum(len(domain) for domain in self.domain_pos)
         self.backend = _check_backend(backend)
 
     def _get_roots(self):
@@ -1265,19 +1269,41 @@ class XXZ_folded:
 
         return circ
 
+    def get_keep_aux_qubits(self):
+        if self.M == 1:
+            aux_qubits_number1 = 0
+        else:
+            aux_qubits_number1 = self.M + 1
+        aux_qubits1 = list(range(self.N, self.N + aux_qubits_number1))
+        keep_qubits1 = list(range(0, self.N))
+        if self.D == 0:
+            return keep_qubits1, aux_qubits1
+        else:
+            if self.N == 5 and self.M == 1 and self.D == 2:
+                aux = 3
+            elif self.N == 6 and self.M == 1 and self.D == 2:
+                aux = 3
+            else:
+                aux = 2 + int(self.D/2) + 2 + int(self.D/2) + 1
+            final_aux_number = max(aux, aux_qubits_number1)
+            keep_qubits = [2*j+1 for j in range(self.N-self.D)] + [2*(self.N-self.D)+i for i in range(self.D)]
+            aux_qubits = list(range(2*self.N-self.D, 2*self.N-self.D+final_aux_number))
+            return keep_qubits, aux_qubits
+
+
     def get_full_circ(self):
         # |Psi_{M,0}_{N-D}> X |0>^D
-
-        if self.M == 1:
-            aux_qubits1 = 0
-        else:
-            aux_qubits1 = self.M + 1
 
         circ1 = self.circ_Psi_M_0
 
         if self.D == 0:
             self.circ_full = circ1
             return circ1
+
+        if self.M == 1:
+            aux_qubits1 = 0
+        else:
+            aux_qubits1 = self.M + 1
 
         # |Psi_{M,D}>
         aux = 4
@@ -1396,28 +1422,25 @@ class XXZ_folded:
         else:
             state1 = state
 
-        if self.D != 0:
-            if boundaries:
-                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
-                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
-                else:
-                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
-            else:
-                if self.M == 1:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-                else:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-        else:
-            if boundaries:
-                raise ValueError(
-                    'Boundaries not implemented for D=0')
-            else:
-                keep = list(range(self.N))
+        # if self.D != 0:
+        #     if boundaries:
+        #         if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+        #             keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+        #         else:
+        #             keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+        #     else:
+        #         keep = [2*j+1 for j in range(self.N-self.D)] + \
+        #             [2*(self.N-self.D)+i for i in range(self.D)]
+        # else:
+        #     if boundaries:
+        #         raise ValueError(
+        #             'Boundaries not implemented for D=0')
+        #     else:
+        #         keep = list(range(self.N))
 
+        keep, _ = self.get_keep_aux_qubits()
         if layout is not None:
             keep = [layout[k] for k in keep]
 
@@ -1493,16 +1516,19 @@ class XXZ_folded:
 
         return obs_expectation
 
-    def circ_to_qiskit(self, circ, measure_all=False):
+    def circ_to_qiskit(self, circ, num_qubits_measure = None):
         from qiskit import QuantumCircuit
         from qiskit.circuit.library import XGate, SwapGate, CXGate, UnitaryGate, CZGate, RZGate, SXGate
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
-        if measure_all:
-            circ_qiskit = QuantumCircuit(circ.nqubits, circ.nqubits)
+        # if measure_all:
+        #     circ_qiskit = QuantumCircuit(circ.nqubits, circ.nqubits)
+        # else:
+        if num_qubits_measure is None:
+            circ_qiskit = QuantumCircuit(circ.nqubits)
         else:
-            circ_qiskit = QuantumCircuit(circ.nqubits, self.N)
+            circ_qiskit = QuantumCircuit(circ.nqubits, num_qubits_measure)
         for g in gate_list:
             control_qubits = g.control_qubits[::-1]
             target_qubits = g.target_qubits[::-1]
@@ -1538,15 +1564,15 @@ class XXZ_folded:
                     
         return circ_qiskit
     
-    def circ_to_quantinuum(self, circ, measure_all=False):
+    def circ_to_quantinuum(self, circ, num_qubits_measure):
         from pytket.circuit import Circuit, OpType, QControlBox, Unitary2qBox, Unitary1qBox, Op
 
         backend = construct_backend('numpy')
         gate_list = circ.queue
-        if measure_all:
-            circ_quantinuum = Circuit(circ.nqubits, circ.nqubits)
-        else:
-            circ_quantinuum = Circuit(circ.nqubits, self.N)
+        # if measure_all:
+        circ_quantinuum = Circuit(circ.nqubits, num_qubits_measure)
+        # else:
+        #     circ_quantinuum = Circuit(circ.nqubits, self.N)
         for g in gate_list:
             control_qubits = g.control_qubits
             target_qubits = g.target_qubits
@@ -1856,89 +1882,67 @@ class XXZ_folded:
             (binary_string[i-1] == '1' and binary_string[i] == '0'):
                 count += 1
         return count
-    
-    # def count_transitions(self, binary_string):
-    #     count_odd = 0
-    #     count_even = 0
-    #     for k in range(len(binary_string)-1):
-    #         if binary_string[k] != binary_string[k+1]:
-    #             if k % 2 == 0:
-    #                 count_even += 1
-    #             else:
-    #                 count_odd += 1
 
-    #     if binary_string[0] == '1':
-    #         count_odd += 1
-    #     if len(binary_string) % 2 == 0:
-    #         if binary_string[-1] == '1':
-    #             count_odd += 1
-    #     else:
-    #         if binary_string[-1] == '1':
-    #             count_even += 1
+    # def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None):
+    #     # only for D=0
+    #     from collections import Counter
+    #     new_counts = Counter()
 
-    #     return count_even, count_odd
+    #     if postselect:
+    #         new_counts2 = Counter()
+    #         for key, value in new_counts.items():
+    #             if key.count('1') == self.M and key[self.N:self.N+self.M+1] == '0'*self.M+'1':
+    #                 new_counts2[key[0:self.N]] = value
+    #         new_counts = new_counts2
 
-    def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None):
-        # only for D=0
-        from collections import Counter
-        new_counts = Counter()
-        # for key, value in counts.items():
-        #     if postselect and mode=='not_z':
-        #         if key[self.N:self.N+self.M+1] == '0'*self.M+'1':
-        #             new_counts[key[0:self.N]] = value
-        #     else:
-        #         new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+    #     if postselect:
+    #         print('survival counts post q1',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
 
-        # if postselect and mode=='z':
-        #     new_counts2 = Counter()
-        #     for key, value in new_counts.items():
-        #         if key.count('1') == self.M:
-        #             new_counts2[key] = value
-        #     new_counts = new_counts2
+    #     if postselect_aux:
+    #         new_counts2 = Counter()
+    #         for key, value in new_counts.items():
+    #             if mode=='not_z' and self.count_transitions(key) <= int(2*self.M):
+    #                 new_counts2[key] = value
+    #             elif mode=='z' and self.count_transitions(key) == int(2*self.M):
+    #                 new_counts2[key] = value
 
-        if postselect:
-            new_counts2 = Counter()
-            for key, value in new_counts.items():
-                if key.count('1') == self.M and key[self.N:self.N+self.M+1] == '0'*self.M+'1':
-                    new_counts2[key[0:self.N]] = value
-            new_counts = new_counts2
+    #         new_counts = new_counts2        
 
-        if postselect:
-            print('survival counts post q1',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
+    #         print('survival counts post q1 and q2',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
 
-        if postselect_aux:
-            new_counts2 = Counter()
-            for key, value in new_counts.items():
-                if mode=='not_z' and self.count_transitions(key) <= int(2*self.M):
-                    new_counts2[key] = value
-                elif mode=='z' and self.count_transitions(key) == int(2*self.M):
-                    new_counts2[key] = value
-
-            new_counts = new_counts2        
-
-            print('survival counts post q1 and q2',np.sum(list(new_counts.values()))/np.sum(list(counts.values())))
-
-        return new_counts
+    #     return new_counts
     
 
     def get_nsites_counts(self, counts, postselect=True, postselect_aux=False, mode=None, survival_ratio=False): #new mode
         # only for D=0
+
+        keep, aux = self.get_keep_aux_qubits()
         from collections import Counter
         new_counts = Counter()
         for key, value in counts.items():
+            new_key = key[0:self.N]
+            key_aux = key[self.N:self.N+len(aux)]
             if postselect: #and mode=='not_z':
-                if key[0:self.N].count('1') == self.M and key[self.N:self.N+self.M+1] == '0'*self.M+'1':
-                    new_counts[key[0:self.N]] = value
+                if self.D == 0:
+                    condition = key_aux == '0'*self.M+'1'
+                elif self.N == 5 and self.M == 1 and self.D == 2:
+                    condition = key_aux == '000' 
+                elif self.N == 6 and self.M == 1 and self.D == 2:
+                    condition = key_aux == '000'
+                else:
+                    condition = key_aux == '00' + '01'+'0'*int(self.D/2) + '1'+'0'*int(self.D/2) #R0 Rc Rr
+                if new_key.count('1') == self.number_ones and condition:
+                    new_counts[new_key] = value
             else:
-                new_counts[key[0:self.N]] = new_counts.get(key[0:self.N], 0) + value
+                new_counts[new_key] = new_counts.get(new_key, 0) + value
 
 
         if postselect_aux:
             new_counts2 = Counter()
             for key, value in new_counts.items():
-                if mode=='not_z' and self.count_transitions(key) <= int(2*self.M):
+                if mode=='not_z' and self.count_transitions(key) <= int(2*self.M) + self.D: # With D != 0 postselection in q2 does not work. It can increase the number of transitions
                     new_counts2[key] = value
-                elif mode=='z' and self.count_transitions(key) == int(2*self.M):
+                elif mode=='z' and self.count_transitions(key) == int(2*self.M) + self.D:
                     new_counts2[key] = value
 
             new_counts = new_counts2        
@@ -2136,44 +2140,52 @@ class XXZ_folded:
 
     def sample_circuit_quantinuum_postq2(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True, circ_to_quantinuum=True, optimization_level=3): #it works without boundaries
         
-        if self.D != 0:
-            if boundaries:
-                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
-                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
-                else:
-                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
-            else:
-                if self.M == 1:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-                else:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-        else:
-            if boundaries:
-                raise ValueError(
-                    'Boundaries not implemented for D=0')
-            else:
-                keep = list(range(self.N))
-                aux = list(range(self.N,self.N+self.M+1))
-                if measure_all:
-                    keep_aux = keep + aux
-                else:
-                    keep_aux = keep
+        # if self.D != 0:
+        #     if boundaries:
+        #         if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+        #             keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+        #         else:
+        #             keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+        #     else:
+        #         if self.M == 1:
+        #             keep = [2*j+1 for j in range(self.N-self.D)] + \
+        #                 [2*(self.N-self.D)+i for i in range(self.D)]
+        #         else:
+        #             keep = [2*j+1 for j in range(self.N-self.D)] + \
+        #                 [2*(self.N-self.D)+i for i in range(self.D)]
+        # else:
+        #     if boundaries:
+        #         raise ValueError(
+        #             'Boundaries not implemented for D=0')
+        #     else:
+        #         keep = list(range(self.N))
+        #         aux = list(range(self.N,self.N+self.M+1))
+        #         if measure_all:
+        #             keep_aux = keep + aux
+        #         else:
+        #             keep_aux = keep
+
+        keep, aux = self.get_keep_aux_qubits()
 
         if layout is not None:
             keep = [layout[k] for k in keep]
             aux = [layout[k] for k in aux]
-            if self.D == 0 and measure_all:
-                keep_aux = keep + aux
-            else:
-                keep_aux = keep
+
+        if measure_all:
+            keep_aux = keep + aux
+        else:
+            keep_aux = keep
 
         circ = self.circ_full
+
+        if measure_all:
+            num_qubits_measure = len(keep_aux)
+        else:
+            num_qubits_measure = len(keep)
         if circ_to_quantinuum:
-            circ = self.circ_to_quantinuum(circ, measure_all=measure_all)
+            circ = self.circ_to_quantinuum(circ, num_qubits_measure=num_qubits_measure)
 
 
         # from pytket.extensions.qiskit import AerStateBackend
@@ -2231,21 +2243,35 @@ class XXZ_folded:
             indices = [i for i, char in enumerate(output) if char == 'z']
             new_indices = []
             for j, index in enumerate(indices):
-                if index != 2 and index != self.N - 3:
-                    if output[indices[j]:indices[j]+4] == 'zxxz':
-                        new_indices.append(index)
-                elif index == 2:
+                # if index != 2 and index != self.N - 3:
+                #     if output[indices[j]:indices[j]+4] == 'zxxz':
+                #         new_indices.append(index)
+                # elif index == 2 and index == self.N - 3:
+                #     if output[0:indices[j]+1] == 'xxz' and output[indices[j]:] == 'zxx':
+                #         new_indices.append('left_b')
+                #         new_indices.append('right_b')
+                # elif index == 2:
+                #     if output[0:indices[j]+1] == 'xxz':
+                #         new_indices.append('left_b')
+                #         new_indices.append(index)
+                # elif index == self.N - 3:
+                #     if output[indices[j]:] == 'zxx':
+                #         new_indices.append('right_b')
+
+                if index == 2:
                     if output[0:indices[j]+1] == 'xxz':
                         new_indices.append('left_b')
-                        new_indices.append(index)
-                elif index == self.N - 3:
+                if index == self.N - 3:
                     if output[indices[j]:] == 'zxx':
-                        #new_indices.append(index)
                         new_indices.append('right_b')
+                else:
+                    if output[indices[j]:indices[j]+4] == 'zxxz':
+                        new_indices.append(index)
 
             output_list.append(output)
             new_indices_list.append(new_indices)
-
+        print(new_indices_list)
+        print(output_list)
         circ_xy_list = []
         for string in output_list:
             circ_zxxz_zyyz = circ.copy()
@@ -2473,44 +2499,54 @@ class XXZ_folded:
 
     def sample_circuit_ionq_postq2(self, device, nshots, layout, boundaries=False,  measure_all = False, compile=True, circ_to_ionq=True, optimization_level=3): #it works without boundaries
         
-        if self.D != 0:
-            if boundaries:
-                if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
-                    keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
-                else:
-                    keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
-                        self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
-            else:
-                if self.M == 1:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-                else:
-                    keep = [2*j+1 for j in range(self.N-self.D)] + \
-                        [2*(self.N-self.D)+i for i in range(self.D)]
-        else:
-            if boundaries:
-                raise ValueError(
-                    'Boundaries not implemented for D=0')
-            else:
-                keep = list(range(self.N))
-                aux = list(range(self.N,self.N+self.M+1))
-                if measure_all:
-                    keep_aux = keep + aux
-                else:
-                    keep_aux = keep
+        # if self.D != 0:
+        #     if boundaries:
+        #         if (self.N == 5 and self.M == 1 and self.D == 2) or (self.N == 6 and self.M == 1 and self.D == 2):
+        #             keep = [self.circ_full.nqubits-1]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-2]
+        #         else:
+        #             keep = [self.circ_full.nqubits-2-(int(self.D/2) + 2 + int(self.D/2) + 1)]+[2*j+1 for j in range(self.N-self.D)] + [2*(
+        #                 self.N-self.D)+i for i in range(self.D)]+[self.circ_full.nqubits-1-(int(self.D/2) + 2 + int(self.D/2) + 1)]
+        #     else:
+        #         if self.M == 1:
+        #             keep = [2*j+1 for j in range(self.N-self.D)] + \
+        #                 [2*(self.N-self.D)+i for i in range(self.D)]
+        #         else:
+        #             keep = [2*j+1 for j in range(self.N-self.D)] + \
+        #                 [2*(self.N-self.D)+i for i in range(self.D)]
+        # else:
+        #     if boundaries:
+        #         raise ValueError(
+        #             'Boundaries not implemented for D=0')
+        #     else:
+        #         keep = list(range(self.N))
+        #         aux = list(range(self.N,self.N+self.M+1))
+        #         if measure_all:
+        #             keep_aux = keep + aux
+        #         else:
+        #             keep_aux = keep
+
+        keep, aux = self.get_keep_aux_qubits()
 
         if layout is not None:
             keep = [layout[k] for k in keep]
             aux = [layout[k] for k in aux]
-            if self.D == 0 and measure_all:
-                keep_aux = keep + aux
-            else:
-                keep_aux = keep
+
+        if measure_all:
+            keep_aux = keep + aux
+        else:
+            keep_aux = keep
+
+        circ = self.circ_full
+
+        if measure_all:
+            num_qubits_measure = len(keep_aux)
+        else:
+            num_qubits_measure = len(keep)
 
         circ = self.circ_full
         if circ_to_ionq:
-            circ = self.circ_to_qiskit(circ, measure_all=measure_all)
+            circ = self.circ_to_qiskit(circ, num_qubits_measure=num_qubits_measure)
 
 
         # from pytket.extensions.qiskit import AerStateBackend
@@ -2576,17 +2612,30 @@ class XXZ_folded:
             indices = [i for i, char in enumerate(output) if char == 'z']
             new_indices = []
             for j, index in enumerate(indices):
-                if index != 2 and index != self.N - 3:
-                    if output[indices[j]:indices[j]+4] == 'zxxz':
-                        new_indices.append(index)
-                elif index == 2:
+                # if index != 2 and index != self.N - 3:
+                #     if output[indices[j]:indices[j]+4] == 'zxxz':
+                #         new_indices.append(index)
+                # elif index == 2 and index == self.N - 3:
+                #     if output[0:indices[j]+1] == 'xxz' and output[indices[j]:] == 'zxx':
+                #         new_indices.append('left_b')
+                #         new_indices.append('right_b')
+                # elif index == 2:
+                #     if output[0:indices[j]+1] == 'xxz':
+                #         new_indices.append('left_b')
+                #         new_indices.append(index)
+                # elif index == self.N - 3:
+                #     if output[indices[j]:] == 'zxx':
+                #         new_indices.append('right_b')
+
+                if index == 2:
                     if output[0:indices[j]+1] == 'xxz':
                         new_indices.append('left_b')
-                        new_indices.append(index)
-                elif index == self.N - 3:
+                if index == self.N - 3:
                     if output[indices[j]:] == 'zxx':
-                        #new_indices.append(index)
                         new_indices.append('right_b')
+                else:
+                    if output[indices[j]:indices[j]+4] == 'zxxz':
+                        new_indices.append(index)
 
             output_list.append(output)
             new_indices_list.append(new_indices)
@@ -2666,6 +2715,7 @@ class XXZ_folded:
         unmeasured_qubits = tuple(i for i in range(nqubits) if i not in qubits)
         freq_array = np.reshape(freq_array, nqubits * (2,))
         freq_array = np.sum(freq_array, axis=unmeasured_qubits)
+        #print(freq_array, qubits, nqubits)
         freq_array = self.backend._order_probabilities(freq_array, qubits, nqubits).ravel()
 
         from collections import Counter
@@ -2809,7 +2859,6 @@ class XXZ_folded:
                     zxxz_zyyz_ham  = Hamiltonian(4, zxxz_zyyz_mat, backend=self.backend)            
                 
                 counts_zxxz_zyyz_j = self.trace_frequencies(counts_zxxz_zyyz, qubits)
-
                 zxxz_zyyz += zxxz_zyyz_ham.expectation_from_samples(counts_zxxz_zyyz_j)
 
 

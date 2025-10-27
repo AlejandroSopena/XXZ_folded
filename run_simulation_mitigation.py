@@ -121,6 +121,12 @@ def main():
         momentum_ints = [1, 4, 6]
     elif N == 10 and M == 4 and D == 0:
         momentum_ints = [1, 3, 5, 7]
+    elif N == 5 and M == 1 and D == 2:
+        momentum_ints = [2]
+    elif N == 6 and M == 1 and D == 2:
+        momentum_ints = [3]
+    elif N == 7 and M == 2 and D == 2:
+        momentum_ints = [1, 3]
     else:
         print('area law')
         momentum_ints = [i + 1 for i in range(M)]
@@ -358,119 +364,131 @@ def main():
     measure_all = True
     error_detection = True
     mitigation_method = 'None'#"CDR_ZNE"
-
-    compile = True
-    if  'quantinuum' in device:
-        circ_to_quantinuum = True
-        counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_quantinuum_postq2(
-            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
-        )
-    elif 'ionq' in device:
-        circ_to_ionq = True
-        counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_ionq_postq2(
-            device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_ionq=circ_to_ionq
-        )
-    new_indices_list_q2, counts_zxxz_zyyz_list1 = counts_energy1_postq2
-
-
-    def get_exp_values_from_counts(counts_x_y_even, counts_x_y_odd, counts_z, counts_energy, measure_all, post_q1, post_q2):
-        new_indices_list_q2, counts_zxxz_zyyz_list = counts_energy
-
-        if measure_all:
-            counts_x_y_even = model.get_nsites_counts(counts_x_y_even, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
-            counts_x_y_odd = model.get_nsites_counts(counts_x_y_odd, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
-            counts_z = model.get_nsites_counts(counts_z, postselect=post_q1, postselect_aux=post_q2, mode='z') 
-            counts_zxxz_zyyz_list = [
-                model.get_nsites_counts(counts, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
-                for counts in counts_zxxz_zyyz_list
-            ]       
-
-        q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
-        q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
-
-        e1_sample = model.sample_ej(1, counts_z, boundaries=boundaries)
-        e2_sample = model.sample_ej(2, counts_z, boundaries=boundaries)
-        nonlocal_pauli_sample = model.sample_nonlocal_pauli(
-            3, counts_z, boundaries=boundaries
-        )
-        energy_sample_q2 = model.sample_energy_postq2(
-            counts_x_y_even,
-            counts_x_y_odd,
-            new_indices_list_q2,
-            counts_zxxz_zyyz_list,
-            backend=backend,
-        )
-
-        return [energy_sample_q2, q1_sample, q2_sample, e1_sample, e2_sample, nonlocal_pauli_sample]
-
-
-    post_q1 = False
-    post_q2 = False
-    expectations_raw = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
-
-    #print('  Energy sample:', energy_sample)
-    print("  Energy sample (new method): ", expectations_raw[0])
-    print("  Q1 sample: ", expectations_raw[1])
-    print("  Q2 sample: ", expectations_raw[2])
-    print("  E1 sample: ", expectations_raw[3])
-    print("  E2 sample: ", expectations_raw[4] )
-    print("  Nonlocal Pauli sample: ", expectations_raw[5])
-
-    if measure_all and error_detection:
-
-
-        # post q1
-        post_q1 = True
-        post_q2 = False
-        expectations_post_q1 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
-
-        print("Error detection q1")
-        print("  Energy sample post: ", expectations_post_q1[0])
-        print("  Q1 sample post: ", expectations_post_q1[1])
-        print("  Q2 sample post: ", expectations_post_q1[2])
-        print("  E1 sample post: ", expectations_post_q1[3])
-        print("  E2 sample post: ", expectations_post_q1[4])
-        print("  Nonlocal Pauli sample post: ", expectations_post_q1[5])
-
-        # post q2
-        post_q1 = False
-        post_q2 = True
-        expectations_post_q2 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
-
-        print("Error detection q2")
-        print("  Energy sample post: ", expectations_post_q2[0])
-        print("  Q1 sample post: ", expectations_post_q2[1])
-        print("  Q2 sample post: ", expectations_post_q2[2])
-        print("  E1 sample post: ", expectations_post_q2[3])
-        print("  E2 sample post: ", expectations_post_q2[4])
-        print("  Nonlocal Pauli sample post: ", expectations_post_q2[5])
-
-        # post q1 q2
-        post_q1 = True
-        post_q2 = True
-        expectations_post_q1_q2 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
-
-        print("Error detection q1 q2")
-        print("  Energy sample post: ", expectations_post_q1_q2[0])
-        print("  Q1 sample post: ", expectations_post_q1_q2[1])
-        print("  Q2 sample post: ", expectations_post_q1_q2[2])
-        print("  E1 sample post: ", expectations_post_q1_q2[3])
-        print("  E2 sample post: ", expectations_post_q1_q2[4])
-        print("  Nonlocal Pauli sample post: ", expectations_post_q1_q2[5])
     
+    if 'quantinuum' in device or 'ionq' in device:
+        compile = True
+        if  'quantinuum' in device:
+            circ_to_quantinuum = True
+            counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_quantinuum_postq2(
+                device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_quantinuum=circ_to_quantinuum
+            )
+        elif 'ionq' in device:
+            circ_to_ionq = True
+            counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, compiled_circuits = model.sample_circuit_ionq_postq2(
+                device, nshots, layout_final, boundaries=boundaries, measure_all=measure_all, compile=compile, circ_to_ionq=circ_to_ionq
+            )
+        new_indices_list_q2, counts_zxxz_zyyz_list1 = counts_energy1_postq2
 
 
-        print('Relative errors (raw/post_q1/post_q2/post_q1+q2)')
-        print("  Energy relative error: ", abs(energy_noiseless - expectations_raw[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q1[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q2[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q1_q2[0]) / abs(energy_noiseless))
-        print("  Q1 relative error: ", abs(Q1_noiseless - expectations_raw[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q1[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q2[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q1_q2[1]) / abs(Q1_noiseless))
-        print("  Q2 relative error: ", abs(Q2_noiseless - expectations_raw[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q1[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q2[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q1_q2[2]) / abs(Q2_noiseless))
-        print("  E1 relative error: ", abs(E1_noiseless - expectations_raw[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q1[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q2[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q1_q2[3]) / abs(E1_noiseless))
-        print("  E2 relative error: ", abs(E2_noiseless - expectations_raw[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q1[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q2[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q1_q2[4]) / abs(E2_noiseless))
-        print("  Nonlocal Pauli relative error: ", abs(nonlocal_pauli_noiseless - expectations_raw[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q1[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q2[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q1_q2[5]) / abs(nonlocal_pauli_noiseless))
+        def get_exp_values_from_counts(counts_x_y_even, counts_x_y_odd, counts_z, counts_energy, measure_all, post_q1, post_q2):
+            new_indices_list_q2, counts_zxxz_zyyz_list = counts_energy
 
-        counts_result = [counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_zxxz_zyyz_list1, new_indices_list_q2]
+            if measure_all:
+                counts_x_y_even = model.get_nsites_counts(counts_x_y_even, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
+                counts_x_y_odd = model.get_nsites_counts(counts_x_y_odd, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
+                counts_z = model.get_nsites_counts(counts_z, postselect=post_q1, postselect_aux=post_q2, mode='z') 
+                counts_zxxz_zyyz_list = [
+                    model.get_nsites_counts(counts, postselect=post_q1, postselect_aux=post_q2, mode='not_z') #'not_z'
+                    for counts in counts_zxxz_zyyz_list
+                ]       
+                #print(counts_z)
+            q1_sample = model.sample_q1(counts_z, boundaries=boundaries)
+            q2_sample = model.sample_q2(counts_z, boundaries=boundaries)
 
-    np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
+            e1_sample = model.sample_ej(1, counts_z, boundaries=boundaries)
+            e2_sample = model.sample_ej(2, counts_z, boundaries=boundaries)
+            nonlocal_pauli_sample = model.sample_nonlocal_pauli(
+                3, counts_z, boundaries=boundaries
+            )
+            energy_sample_q2 = model.sample_energy_postq2(
+                counts_x_y_even,
+                counts_x_y_odd,
+                new_indices_list_q2,
+                counts_zxxz_zyyz_list,
+                backend=backend,
+            )
+
+            return [energy_sample_q2, q1_sample, q2_sample, e1_sample, e2_sample, nonlocal_pauli_sample]
+
+
+        post_q1 = False
+        post_q2 = False
+        #print(counts_energy1_postq2[1])
+        expectations_raw = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
+
+        #print('  Energy sample:', energy_sample)
+        print("  Energy sample (new method): ", expectations_raw[0])
+        print("  Q1 sample: ", expectations_raw[1])
+        print("  Q2 sample: ", expectations_raw[2])
+        print("  E1 sample: ", expectations_raw[3])
+        print("  E2 sample: ", expectations_raw[4] )
+        print("  Nonlocal Pauli sample: ", expectations_raw[5])
+
+        if measure_all and error_detection:
+
+
+            # post q1
+            post_q1 = True
+            post_q2 = False
+            expectations_post_q1 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
+
+            print("Error detection q1")
+            print("  Energy sample post: ", expectations_post_q1[0])
+            print("  Q1 sample post: ", expectations_post_q1[1])
+            print("  Q2 sample post: ", expectations_post_q1[2])
+            print("  E1 sample post: ", expectations_post_q1[3])
+            print("  E2 sample post: ", expectations_post_q1[4])
+            print("  Nonlocal Pauli sample post: ", expectations_post_q1[5])
+
+
+            print('Relative errors (raw/post_q1)')
+            print("  Energy relative error: ", abs(energy_noiseless - expectations_raw[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q1[0]) / abs(energy_noiseless))
+            print("  Q1 relative error: ", abs(Q1_noiseless - expectations_raw[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q1[1]) / abs(Q1_noiseless))
+            print("  Q2 relative error: ", abs(Q2_noiseless - expectations_raw[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q1[2]) / abs(Q2_noiseless))
+            print("  E1 relative error: ", abs(E1_noiseless - expectations_raw[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q1[3]) / abs(E1_noiseless))
+            print("  E2 relative error: ", abs(E2_noiseless - expectations_raw[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q1[4]) / abs(E2_noiseless))
+            print("  Nonlocal Pauli relative error: ", abs(nonlocal_pauli_noiseless - expectations_raw[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q1[5]) / abs(nonlocal_pauli_noiseless))
+
+            if D == 0:
+                # post q2
+                post_q1 = False
+                post_q2 = True
+                expectations_post_q2 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
+
+                print("Error detection q2")
+                print("  Energy sample post: ", expectations_post_q2[0])
+                print("  Q1 sample post: ", expectations_post_q2[1])
+                print("  Q2 sample post: ", expectations_post_q2[2])
+                print("  E1 sample post: ", expectations_post_q2[3])
+                print("  E2 sample post: ", expectations_post_q2[4])
+                print("  Nonlocal Pauli sample post: ", expectations_post_q2[5])
+
+                # post q1 q2
+                post_q1 = True
+                post_q2 = True
+                expectations_post_q1_q2 = get_exp_values_from_counts(counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_energy1_postq2, measure_all, post_q1, post_q2)
+
+                print("Error detection q1 q2")
+                print("  Energy sample post: ", expectations_post_q1_q2[0])
+                print("  Q1 sample post: ", expectations_post_q1_q2[1])
+                print("  Q2 sample post: ", expectations_post_q1_q2[2])
+                print("  E1 sample post: ", expectations_post_q1_q2[3])
+                print("  E2 sample post: ", expectations_post_q1_q2[4])
+                print("  Nonlocal Pauli sample post: ", expectations_post_q1_q2[5])
+            
+
+
+                print('Relative errors (raw/post_q1/post_q2/post_q1+q2)')
+                print("  Energy relative error: ", abs(energy_noiseless - expectations_raw[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q1[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q2[0]) / abs(energy_noiseless), abs(energy_noiseless - expectations_post_q1_q2[0]) / abs(energy_noiseless))
+                print("  Q1 relative error: ", abs(Q1_noiseless - expectations_raw[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q1[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q2[1]) / abs(Q1_noiseless), abs(Q1_noiseless - expectations_post_q1_q2[1]) / abs(Q1_noiseless))
+                print("  Q2 relative error: ", abs(Q2_noiseless - expectations_raw[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q1[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q2[2]) / abs(Q2_noiseless), abs(Q2_noiseless - expectations_post_q1_q2[2]) / abs(Q2_noiseless))
+                print("  E1 relative error: ", abs(E1_noiseless - expectations_raw[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q1[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q2[3]) / abs(E1_noiseless), abs(E1_noiseless - expectations_post_q1_q2[3]) / abs(E1_noiseless))
+                print("  E2 relative error: ", abs(E2_noiseless - expectations_raw[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q1[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q2[4]) / abs(E2_noiseless), abs(E2_noiseless - expectations_post_q1_q2[4]) / abs(E2_noiseless))
+                print("  Nonlocal Pauli relative error: ", abs(nonlocal_pauli_noiseless - expectations_raw[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q1[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q2[5]) / abs(nonlocal_pauli_noiseless), abs(nonlocal_pauli_noiseless - expectations_post_q1_q2[5]) / abs(nonlocal_pauli_noiseless))
+
+            counts_result = [counts_x_y_even1, counts_x_y_odd1, counts_z1, counts_zxxz_zyyz_list1, new_indices_list_q2]
+
+        np.save(path + "/state.npy", {"noiseless": state_noiseless, "noisy": [counts_result, compiled_circuits]})
 
     if backend.platform == "cupy":
         cp.get_default_memory_pool().free_all_blocks()
@@ -479,64 +497,64 @@ def main():
     
 
 
-    seed = None
-    backend = None
-    backend, local_state = _check_backend_and_local_state(seed, backend)
+    # seed = None
+    # backend = None
+    # backend, local_state = _check_backend_and_local_state(seed, backend)
 
-    model.backend = backend
+    # model.backend = backend
     
-    if "CDR" in mitigation_method:
-        # CDR         
-        training_circuits = [
-            sample_training_circuit_cdr(circ_qibo, seed=local_state, backend=backend)
-            for _ in range(n_training_samples)
-        ]
+    # if "CDR" in mitigation_method:
+    #     # CDR         
+    #     training_circuits = [
+    #         sample_training_circuit_cdr(circ_qibo, seed=local_state, backend=backend)
+    #         for _ in range(n_training_samples)
+    #     ]
 
-        np.save(path + "/training_states/training_circuits.npy", training_circuits)
+    #     np.save(path + "/training_states/training_circuits.npy", training_circuits)
 
-        for i in range(n_training_samples):
-            print("Training circuit: ", i)
-            _get_state_cdr(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=True)
+    #     for i in range(n_training_samples):
+    #         print("Training circuit: ", i)
+    #         _get_state_cdr(model, i, path, device, nshots, measure_all, error_detection, boundaries, layout_final, backend, compile=True)
 
 
     
-    states = np.load(path + "/state.npy", allow_pickle=True).item()
-    noisy_state = states["noisy"]   
+    # states = np.load(path + "/state.npy", allow_pickle=True).item()
+    # noisy_state = states["noisy"]   
    
 
 
 
-    observables_label = ["Energy", "Q1", "Q2", "E1", "E2", "Nonlocal Pauli"]
-    noiseless_val_list = [energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]
+    # observables_label = ["Energy", "Q1", "Q2", "E1", "E2", "Nonlocal Pauli"]
+    # noiseless_val_list = [energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]
 
-    results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]]
-    if "CDR" in mitigation_method:
-        results_cdr = results.copy()
+    # results = [[[circ, layout_final], energy_noiseless, Q1_noiseless, Q2_noiseless, E1_noiseless, E2_noiseless, nonlocal_pauli_noiseless]]
+    # if "CDR" in mitigation_method:
+    #     results_cdr = results.copy()
 
-    for i, observable_label in enumerate(observables_label):
-        if "CDR" in mitigation_method:
-            print("CDR")
-            # mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
-            #     observable_label, n_training_samples, noisy_state
-            # )
-            mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
-                model, observable_label, n_training_samples, noisy_state, boundaries, path, backend, local_state
-            )
-            results_cdr.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
-            print(observable_label)
-            print("  Mitigated: ", mit_val)
-            print("  Mitigated post: ", mit_val_post)
-            print("  Noisy: ", val)
-            print("  Noisy post: ", val_post)
-            print("  Noiseless: ", noiseless_val_list[i])
-            print("  Optimal parameters: ", optimal_params)
-            print("  Optimal parameters post: ", optimal_params_post)
-            print("  Noise circuit values: ", train_val) 
+    # for i, observable_label in enumerate(observables_label):
+    #     if "CDR" in mitigation_method:
+    #         print("CDR")
+    #         # mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
+    #         #     observable_label, n_training_samples, noisy_state
+    #         # )
+    #         mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val = get_mit_value_cdr(
+    #             model, observable_label, n_training_samples, noisy_state, boundaries, path, backend, local_state
+    #         )
+    #         results_cdr.append([mit_val, mit_val_post, val, val_post, optimal_params, optimal_params_post, train_val, noiseless_val_list[i]])
+    #         print(observable_label)
+    #         print("  Mitigated: ", mit_val)
+    #         print("  Mitigated post: ", mit_val_post)
+    #         print("  Noisy: ", val)
+    #         print("  Noisy post: ", val_post)
+    #         print("  Noiseless: ", noiseless_val_list[i])
+    #         print("  Optimal parameters: ", optimal_params)
+    #         print("  Optimal parameters post: ", optimal_params_post)
+    #         print("  Noise circuit values: ", train_val) 
 
         
-    if "CDR" in mitigation_method:
-        results_cdr = np.array(results_cdr, object)
-        np.save(path + f"/mitigated_values_CDR.npy", results_cdr, allow_pickle=True)
+    # if "CDR" in mitigation_method:
+    #     results_cdr = np.array(results_cdr, object)
+    #     np.save(path + f"/mitigated_values_CDR.npy", results_cdr, allow_pickle=True)
 
 
 if __name__ == "__main__":
