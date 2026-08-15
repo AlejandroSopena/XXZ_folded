@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sc
 from scipy.optimize import basinhopping
 
 from qibo import gates
@@ -53,7 +54,7 @@ class XXZ_free_open_model:
         return min(n+1,2*self.nmagnons)
 
     def choose(self,n, m):
-        return np.math.factorial(n)/(np.math.factorial(m)*np.math.factorial(n-m))
+        return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
 
     def _get_index(self, r):
         def gen_l(l,j):
@@ -131,26 +132,26 @@ class XXZ_free_open_model:
 
         return a
 
-    def Ark(self,r,k):
-        def choose(n, m):
-            return np.math.factorial(n)/(np.math.factorial(m)*np.math.factorial(n-m))
-        rows = int(choose(self.m_k(k), r))
-        cols = int(choose(self.m_k(k), r))
-        A = np.zeros((rows,cols),complex)
-        c = self._get_Crk(r, k)
-        for a in range(rows):
-            for b in range(cols):
-                c_a_to_b = np.copy(c)
-                c_a_to_b[:,a] = c[:,b]
-                if a == 0:
-                    det_a = 1
-                else:
-                    det_a = np.linalg.det(c[0:a,0:a])
-                det_aplus1 = np.linalg.det(c[0:a+1,0:a+1])
-                det_aplus1_ab = np.linalg.det(c_a_to_b[0:a+1,0:a+1])
-                A[a,b] = det_aplus1_ab / np.sqrt(det_a*det_aplus1)
+    # def Ark(self,r,k):
+    #     def choose(n, m):
+    #         return sc.special.factorial(n)/(sc.special.factorial(m)*sc.special.factorial(n-m))
+    #     rows = int(choose(self.m_k(k), r))
+    #     cols = int(choose(self.m_k(k), r))
+    #     A = np.zeros((rows,cols),complex)
+    #     c = self._get_Crk(r, k)
+    #     for a in range(rows):
+    #         for b in range(cols):
+    #             c_a_to_b = np.copy(c)
+    #             c_a_to_b[:,a] = c[:,b]
+    #             if a == 0:
+    #                 det_a = 1
+    #             else:
+    #                 det_a = np.linalg.det(c[0:a,0:a])
+    #             det_aplus1 = np.linalg.det(c[0:a+1,0:a+1])
+    #             det_aplus1_ab = np.linalg.det(c_a_to_b[0:a+1,0:a+1])
+    #             A[a,b] = det_aplus1_ab / np.sqrt(det_a*det_aplus1)
 
-        return A
+    #     return A
    
     def get_v(self):
         s1 = np.array([0,0,1,0],complex)
@@ -229,18 +230,73 @@ def ansatz(nlayers, nmagnons):
     i = 0
     j = 2*nmagnons-2+1
     for l in range(nlayers):
-        q=0
-        for _ in range(2*nmagnons-1):
-            if q >= i:
-                if i == 0:
-                    circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
-                elif q < j:
-                    circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+        if l == nlayers-1:
+            q = 0
+            for _ in range(2*nmagnons-1):
+                if q >= i:
+                    if i == 0:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                    elif q < j:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                q=q+1
+        else:
+            q = 0
+            for q in range(2*nmagnons-1):
+                circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))            
 
-            q=q+1
+                q=q+1
         i += 2
         j -= 1
     return circ
+
+def ansatz(nlayers, nmagnons):
+    circ = Circuit(2*nmagnons)
+    for l in range(2*nmagnons):
+        if l%2 != 0:
+            circ.add(gates.X(l))
+    i = 0
+    j = 2*nmagnons-2+1
+    for l in range(nlayers):
+        if l == nlayers-1 and l != 0:   
+            i += 2
+            j -= 1
+            q = 0
+            for _ in range(2*nmagnons-1):
+                if q >= i:
+                    if i == 0:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                    elif q < j:
+                        circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+                q=q+1
+        else:
+            q = 0
+            for q in range(2*nmagnons-1):
+                circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))            
+
+                q=q+1
+    return circ
+
+# def ansatz(nlayers, nmagnons):
+#     circ = Circuit(2*nmagnons)
+#     for l in range(2*nmagnons):
+#         if l%2 != 0:
+#             circ.add(gates.X(l))
+#     i = 0
+#     j = 2*nmagnons-2+1
+#     for l in range(nlayers):
+#         q=0
+#         for _ in range(2*nmagnons-1):
+#             if q >= i:
+#                 if i == 0:
+#                     circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+#                 elif q < j:
+#                     circ.add((gates.GeneralizedfSim(q, q+1, f(0,0,0), 0)))
+
+#             q=q+1
+#         i += 2
+#         j -= 1
+#     return circ
+
 
 def loss(params0, nlayers, nmagnons, u, backend):
     circ1 = ansatz(nlayers, nmagnons)
@@ -259,7 +315,7 @@ def print_fun(x, f, accepted):
 
 def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     backend = _check_backend(backend)
-    backend.set_precision('double')
+    backend.set_dtype('complex128')
     model = XXZ_free_open_model(nqubits, nmagnons)
     model.get_roots(roots)
     model.get_indexes()
@@ -275,7 +331,7 @@ def get_b_circuit(nqubits, nmagnons, roots, backend=None):
     c1 = ansatz(nlayers, nmagnons)
     c = Circuit(2*nmagnons)
     c.add(c1.on_qubits(*reversed(range(2*nmagnons))))
-    
+    c1.draw()
     params0 = np.random.uniform(0,1,(len(c.queue)-nmagnons)*3)
     print('Numerical optimization of the circuit to prepare the initial state')
     result = basinhopping(loss, params0, minimizer_kwargs={"args":(nlayers, nmagnons, u, backend), "method":"L-BFGS-B", 'tol':1e-11} ,disp=True, callback=print_fun)
